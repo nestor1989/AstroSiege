@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Single-screen wrapper: the game itself (WebView) fills the screen; a banner ad
+  container sits pinned to the bottom and is shown/hidden natively (see
+  AdManager.setBannerVisible) depending on what screen the game is on — the JS
+  bridge tells us via GameBridge.onModeChange(). It stays empty/gone during
+  actual gameplay so it can never be mistaken for a game button.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/void_deep">
+
+    <WebView
+        android:id="@+id/gameWebView"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/void_deep" />
+
+    <FrameLayout
+        android:id="@+id/bannerContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:background="@color/void_bg"
+        android:visibility="gone" />
+
+</LinearLayout>

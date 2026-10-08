@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Ads + billing need network. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Haptic feedback on hits / pickups. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Android 13+ requires runtime permission to post the daily-reminder notification. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Re-schedule the daily reminder after a device reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Exact-enough alarm for the daily reminder (setAndAllowWhileIdle, not setExactAndAllowWhileIdle,
+         so SCHEDULE_EXACT_ALARM is intentionally NOT requested here — keeps the permission footprint small). -->
+    <!-- Android 13+ (API 33+) requires this permission when the app uses the advertising ID
+         (Play Console: "Advertising ID" declaration). play-services-ads already merges this
+         permission in automatically via its own library manifest, but it's declared explicitly
+         here too so it's not silently dependent on manifest merging. -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
+
+    <application
+        android:name=".AstroSiegeApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.AstroSiege"
+        android:hardwareAccelerated="true"
+        android:supportsRtl="true"
+        tools:targetApi="34">
+
+        <!--
+          Real AdMob App ID for Astro Siege (astro-siege-android app in AdMob console).
+        -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-4930505659937183~6794385855" />
+
+        <!-- Optimize initial ad load latency; safe default recommended by Google. -->
+        <meta-data
+            android:name="com.google.android.gms.ads.flag.OPTIMIZE_INITIALIZATION"
+            android:value="true" />
+        <meta-data
+            android:name="com.google.android.gms.ads.flag.OPTIMIZE_AD_LOADING"
+            android:value="true" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AstroSiege.Launch">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Daily "come back and play" local reminder notification. Opt-out is exposed
+             in-game (Hangar > settings); it degrades silently if the user denies the
+             POST_NOTIFICATIONS permission. -->
+        <receiver
+            android:name=".reminder.DailyReminderReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".reminder.BootRescheduleReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

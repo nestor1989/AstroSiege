@@ -1,0 +1,2293 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Astro Siege</title>
+<style>
+  :root{
+    --void:#0a0d18;
+    --void-deep:#050611;
+    --cabinet:#241a30;
+    --cabinet-hi:#3c2d4d;
+    --cabinet-lo:#150f1e;
+    --screen-bg:#060814;
+    --screen-bg-2:#0d1330;
+    --marquee:#ff6b4a;
+    --marquee-glow:rgba(255,107,74,0.55);
+    --laser:#4fe3ff;
+    --laser-glow:rgba(79,227,255,0.6);
+    --score-c:#c6ff6b;
+    --danger:#ff4f6d;
+    --ink:#f3efe8;
+    --ink-dim:#a99bc4;
+    --metal:#4b4058;
+    --metal-lo:#2a2135;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px;
+    background:
+      radial-gradient(120% 90% at 50% -10%, #171226 0%, var(--void-deep) 55%, #020207 100%);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+  }
+
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  .arcade{
+    width:100%;
+    max-width:380px;
+    display:flex;
+    flex-direction:column;
+    user-select:none;
+  }
+
+  .marquee{
+    background:linear-gradient(180deg, var(--cabinet-hi), var(--cabinet));
+    border-radius:14px 14px 4px 4px;
+    padding:14px 10px 10px;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,0.06), inset 0 -3px 6px rgba(0,0,0,0.4);
+  }
+  .marquee-glass{
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.25));
+    border-radius:8px;
+    padding:10px 6px 12px;
+    text-align:center;
+  }
+  .tagline{
+    margin:0 0 6px;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:9px;
+    letter-spacing:3px;
+    color:var(--ink-dim);
+  }
+  .title{
+    margin:0;
+    font-family:'Press Start 2P', ui-monospace, monospace;
+    font-size:clamp(15px,4.4vw,21px);
+    letter-spacing:2px;
+    color:var(--marquee);
+    text-shadow:0 0 6px var(--marquee-glow), 0 0 20px var(--marquee-glow);
+    text-wrap:balance;
+    animation:flicker 3.4s infinite;
+  }
+  @keyframes flicker{
+    0%,19%,21%,23%,54%,56%,100%{ opacity:1; }
+    20%,22%,55%{ opacity:.82; }
+  }
+
+  .cabinet-body{
+    position:relative;
+    background:linear-gradient(160deg, var(--cabinet-hi) 0%, var(--cabinet) 42%, var(--cabinet-lo) 100%);
+    padding:14px;
+    border-radius:4px 4px 18px 18px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .screw{
+    position:absolute;
+    width:8px; height:8px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #d8cfe0, var(--metal) 60%, var(--metal-lo));
+    box-shadow:0 1px 2px rgba(0,0,0,0.6);
+  }
+
+  .screen-frame{
+    position:relative;
+    background:var(--metal-lo);
+    padding:10px;
+    border-radius:10px;
+    box-shadow:inset 0 0 0 2px var(--metal), inset 0 6px 14px rgba(0,0,0,0.6);
+  }
+  canvas{
+    display:block;
+    width:100%;
+    max-width:340px;
+    aspect-ratio:340/560;
+    margin:0 auto;
+    background:radial-gradient(120% 100% at 50% 0%, var(--screen-bg-2), var(--screen-bg) 70%);
+    border-radius:4px;
+    touch-action:none;
+  }
+  .scanlines{
+    position:absolute; inset:10px;
+    border-radius:4px;
+    pointer-events:none;
+    background:repeating-linear-gradient(180deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 2px, transparent 3px);
+    mix-blend-mode:overlay;
+  }
+  .vignette{
+    position:absolute; inset:10px;
+    border-radius:4px;
+    pointer-events:none;
+    box-shadow:inset 0 0 40px 14px rgba(0,0,0,0.55);
+  }
+
+  .hud{
+    position:absolute; top:18px; left:18px; right:18px;
+    display:flex; justify-content:space-between;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric:tabular-nums;
+    pointer-events:none;
+  }
+  .hud div{ display:flex; flex-direction:column; gap:2px; }
+  .hud-right{ align-items:flex-end; text-align:right; }
+  .hud .label{ font-size:8.5px; letter-spacing:1.5px; color:var(--ink-dim); }
+  .hud .value{ font-size:13px; color:var(--score-c); text-shadow:0 0 6px rgba(198,255,107,0.5); }
+
+  .boss-bar{
+    position:absolute; left:18px; right:18px; top:42px;
+    height:5px; border-radius:3px; overflow:hidden;
+    background:rgba(255,255,255,0.08);
+  }
+  .boss-bar[hidden]{ display:none; }
+  .boss-bar-fill{
+    height:100%; width:100%;
+    background:linear-gradient(90deg,#ff6b4a,#ff4f6d);
+    transition:width .15s ease;
+  }
+
+  .lives{ position:absolute; bottom:14px; left:18px; display:flex; gap:5px; pointer-events:none; }
+  .life-icon{
+    width:11px; height:11px;
+    background:var(--laser);
+    clip-path:polygon(50% 0%, 0% 100%, 100% 100%);
+    filter:drop-shadow(0 0 3px var(--laser-glow));
+  }
+
+  .overlay{
+    position:absolute; inset:10px;
+    border-radius:4px;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(6,8,20,0.88);
+  }
+  .overlay[hidden]{ display:none; }
+  .overlay-content{
+    text-align:center; padding:16px 18px;
+    display:flex; flex-direction:column; align-items:center; gap:10px;
+    max-width:290px;
+    max-height:100%;
+    overflow-y:auto;
+  }
+  .overlay h2{
+    margin:0;
+    font-family:'Press Start 2P', ui-monospace, monospace;
+    font-size:13px;
+    color:var(--marquee);
+    text-shadow:0 0 10px var(--marquee-glow);
+    animation:pulse 1.4s infinite;
+  }
+  .story-text{
+    margin:0;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:11px;
+    line-height:1.75;
+    color:var(--ink);
+    white-space:pre-wrap;
+    text-align:left;
+    min-height:3.6em;
+  }
+  .hint-text{
+    margin:0;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:9.5px;
+    letter-spacing:0.5px;
+    color:var(--ink-dim);
+  }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.5; } }
+
+  .btn{
+    font-family:'Press Start 2P', ui-monospace, monospace;
+    font-size:10.5px;
+    padding:12px 18px;
+    background:linear-gradient(180deg, var(--laser), #1fa9c4);
+    border:none;
+    border-radius:4px;
+    color:#04202a;
+    cursor:pointer;
+    box-shadow:0 4px 0 #0f6b80, 0 0 16px var(--laser-glow);
+  }
+  .btn:active{ transform:translateY(2px); box-shadow:0 2px 0 #0f6b80; }
+  .btn:focus-visible{ outline:3px solid var(--score-c); outline-offset:3px; }
+  .btn[disabled]{ opacity:0.5; cursor:default; transform:none; }
+
+  .btn-secondary{
+    font-family:'Press Start 2P', ui-monospace, monospace;
+    font-size:8.5px;
+    padding:9px 14px;
+    background:linear-gradient(180deg, var(--metal), var(--metal-lo));
+    border:none;
+    border-radius:4px;
+    color:var(--ink);
+    cursor:pointer;
+    box-shadow:0 4px 0 var(--metal-lo);
+  }
+  .btn-secondary:active{ transform:translateY(2px); box-shadow:0 2px 0 var(--metal-lo); }
+  .btn-secondary:focus-visible{ outline:2px solid var(--laser); outline-offset:2px; }
+
+  .control-panel{
+    margin-top:12px;
+    background:linear-gradient(180deg, var(--metal), var(--metal-lo));
+    border-radius:10px;
+    padding:12px 14px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,0.06), inset 0 -2px 4px rgba(0,0,0,0.4);
+  }
+  .panel-label{
+    font-family:'Press Start 2P', ui-monospace, monospace;
+    font-size:7.5px;
+    letter-spacing:1px;
+    color:var(--ink-dim);
+    margin-bottom:5px;
+  }
+  .panel-instructions{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:10.5px;
+    color:var(--ink);
+  }
+  .key{
+    background:var(--cabinet-lo);
+    border:1px solid var(--metal);
+    border-radius:3px;
+    padding:1px 5px;
+    font-size:9.5px;
+  }
+  .panel-right{ display:flex; align-items:center; gap:10px; flex:0 0 auto; }
+  .mute-btn{
+    width:30px; height:30px; flex:0 0 auto;
+    background:var(--cabinet-lo);
+    border:1px solid var(--metal);
+    border-radius:6px;
+    color:var(--ink);
+    font-size:14px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .mute-btn:focus-visible{ outline:2px solid var(--laser); outline-offset:2px; }
+  .lang-btn{
+    width:30px; height:30px; flex:0 0 auto;
+    background:var(--cabinet-lo);
+    border:1px solid var(--metal);
+    border-radius:6px;
+    color:var(--ink);
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:10px;
+    font-weight:600;
+    letter-spacing:0.5px;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+  .lang-btn:focus-visible{ outline:2px solid var(--laser); outline-offset:2px; }
+  .coin-slot{
+    width:26px; height:10px; flex:0 0 auto;
+    background:var(--cabinet-lo);
+    border-radius:2px;
+    box-shadow:inset 0 2px 3px rgba(0,0,0,0.7), 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .footer-tag{
+    margin-top:10px;
+    text-align:center;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:9px;
+    letter-spacing:1.5px;
+    color:var(--ink-dim);
+    opacity:.7;
+  }
+
+  /* -------- hangar / ship-select -------- */
+  .ship-preview{
+    width:132px; height:100px;
+    background:radial-gradient(120% 100% at 50% 32%, rgba(255,255,255,0.06), transparent 70%);
+    border-radius:8px;
+  }
+  .ship-name{
+    margin:0;
+    font-family:'Press Start 2P', ui-monospace, monospace;
+    font-size:10px;
+    letter-spacing:1px;
+  }
+  .ship-desc{
+    margin:0;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:9.5px;
+    line-height:1.5;
+    color:var(--ink-dim);
+    text-align:center;
+  }
+  .stat-block{ width:100%; display:flex; flex-direction:column; gap:4px; }
+  .stat-row{ display:flex; align-items:center; gap:6px; }
+  .stat-label{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:8px; letter-spacing:1px; color:var(--ink-dim);
+    width:34px; flex:0 0 auto; text-align:left;
+  }
+  .stat-bar{ flex:1 1 auto; height:6px; border-radius:3px; background:rgba(255,255,255,0.08); overflow:hidden; }
+  .stat-fill{ height:100%; background:linear-gradient(90deg,var(--laser),var(--score-c)); }
+  .stat-val{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:8px; color:var(--ink-dim); width:20px; flex:0 0 auto; text-align:right;
+  }
+  .coin-display{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:12px; color:var(--score-c);
+    text-shadow:0 0 6px rgba(198,255,107,0.5);
+  }
+  .ship-nav{ display:flex; align-items:center; gap:12px; }
+  .nav-btn{
+    width:26px; height:26px; border-radius:6px; border:1px solid var(--metal);
+    background:var(--cabinet-lo); color:var(--ink); font-size:12px; cursor:pointer;
+  }
+  .nav-btn:focus-visible{ outline:2px solid var(--laser); outline-offset:2px; }
+  .ship-index{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:10px; color:var(--ink-dim);
+  }
+
+  .hangar-tabs{ display:flex; gap:8px; width:100%; }
+  .tab-btn{
+    flex:1 1 auto;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:9px; letter-spacing:1px;
+    padding:7px 4px;
+    background:var(--cabinet-lo);
+    border:1px solid var(--metal);
+    border-radius:4px;
+    color:var(--ink-dim);
+    cursor:pointer;
+  }
+  .tab-btn.active{
+    background:linear-gradient(180deg, var(--laser), #1fa9c4);
+    color:#04202a;
+    border-color:transparent;
+  }
+  .tab-btn:focus-visible{ outline:2px solid var(--laser); outline-offset:2px; }
+
+  .acc-list{ width:100%; display:flex; flex-direction:column; gap:14px; }
+  .acc-row{ width:100%; display:flex; flex-direction:column; gap:4px; text-align:left; }
+  .acc-head{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .acc-name{
+    font-family:'Press Start 2P', ui-monospace, monospace;
+    font-size:8px; letter-spacing:0.5px; color:var(--ink);
+  }
+  .acc-level{
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:9px; color:var(--ink-dim); white-space:nowrap;
+  }
+  .acc-desc{
+    margin:0;
+    font-family:'IBM Plex Mono', ui-monospace, monospace;
+    font-size:8.5px; color:var(--ink-dim);
+  }
+  .acc-btn{ align-self:stretch; margin-top:2px; }
+
+  @media (prefers-reduced-motion: reduce){
+    .title, .overlay h2{ animation:none; }
+  }
+</style>
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<div class="arcade">
+  <div class="marquee">
+    <div class="marquee-glass">
+      <p class="tagline">SPACE PATROL — SECTOR 7</p>
+      <h1 class="title">ASTRO SIEGE</h1>
+    </div>
+  </div>
+
+  <div class="cabinet-body">
+    <div class="screw" style="top:6px;left:6px"></div>
+    <div class="screw" style="top:6px;right:6px"></div>
+    <div class="screw" style="bottom:6px;left:6px"></div>
+    <div class="screw" style="bottom:6px;right:6px"></div>
+
+    <div class="screen-frame">
+      <p class="sr-only" id="srDesc">Astro Siege: an arcade shooter with a sci-fi story told between stages, in an endless loop that only grows more difficult. Choose your ship in the hangar; each one has different speed, fire rate, damage and life, and unlocks with coins you earn by playing. Drag your finger to move in any direction, or use the arrow keys. Your ship fires automatically. Collect colored power-ups and defeat the guardians of each sector.</p>
+      <canvas id="game" aria-hidden="true"></canvas>
+      <div class="scanlines" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+
+      <div class="hud">
+        <div class="hud-left"><span class="label">SCORE</span><span class="value" id="score">000000</span></div>
+        <div class="hud-right"><span class="label">HI-SCORE</span><span class="value" id="hiscore">000000</span></div>
+      </div>
+      <div class="boss-bar" id="bossBar" hidden aria-hidden="true"><div class="boss-bar-fill" id="bossBarFill"></div></div>
+      <div class="lives" id="lives"></div>
+
+      <div class="overlay" id="overlay">
+        <div class="overlay-content" id="overlay-content"></div>
+      </div>
+    </div>
+
+    <div class="control-panel">
+      <div>
+        <div class="panel-label">CONTROL PANEL</div>
+        <div class="panel-instructions"><span class="key">DRAG</span>&nbsp;<span id="dragInstr">to move</span></div>
+      </div>
+      <div class="panel-right">
+        <button class="lang-btn" id="langBtn" aria-label="Change language">EN</button>
+        <button class="mute-btn" id="muteBtn" aria-label="Mute sound" aria-pressed="false">&#128266;</button>
+        <div class="coin-slot" aria-hidden="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-tag">ASTRO SIEGE · CABINET BUILD 0.4 · INFINITE SIEGE</div>
+</div>
+
+<script>
+(function(){
+  /* ---------------- native bridge (Android wrapper only) ----------------
+     window.AndroidBridge is injected by MainActivity/GameBridge.kt only inside the
+     native Android wrapper. When this page runs standalone (the Artifact/web build,
+     or a plain browser), window.AndroidBridge is undefined and every call below is a
+     harmless no-op — the game plays exactly as before, just without ads/haptics/IAP. */
+  const Native = (function(){
+    const bridge = (typeof window !== 'undefined' && window.AndroidBridge) ? window.AndroidBridge : null;
+    function safe(fn){ try{ fn(); }catch(e){} }
+    return {
+      isAvailable: function(){ return !!bridge; },
+      onModeChange: function(mode){ if(bridge) safe(function(){ bridge.onModeChange(mode); }); },
+      onGameOver: function(){ if(bridge) safe(function(){ bridge.onGameOver(); }); },
+      requestInterstitialIfDue: function(){ if(bridge) safe(function(){ bridge.requestInterstitialIfDue(); }); },
+      offerContinue: function(){ if(bridge) safe(function(){ bridge.offerContinue(); }); },
+      watchAdForCoins: function(){ if(bridge) safe(function(){ bridge.watchAdForCoins(); }); },
+      purchaseRemoveAds: function(){ if(bridge) safe(function(){ bridge.purchaseRemoveAds(); }); },
+      restorePurchases: function(){ if(bridge) safe(function(){ bridge.restorePurchases(); }); },
+      isAdsRemoved: function(){ if(!bridge) return false; try{ return !!bridge.isAdsRemoved(); }catch(e){ return false; } },
+      haptic: function(kind){ if(bridge) safe(function(){ bridge.haptic(kind); }); }
+    };
+  })();
+
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const hiEl = document.getElementById('hiscore');
+  const livesEl = document.getElementById('lives');
+  const overlay = document.getElementById('overlay');
+  const overlayContent = document.getElementById('overlay-content');
+  const bossBar = document.getElementById('bossBar');
+  const bossBarFill = document.getElementById('bossBarFill');
+  const muteBtn = document.getElementById('muteBtn');
+
+  const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  /* ---------------- ships ---------------- */
+  const SHIPS = [
+    { id:'interceptor', name:'INTERCEPTOR', cost:0,
+      desc:'Equilibrada, ideal para empezar.',
+      speed:260, fireInterval:0.28, damage:1, lives:3, bulletSpeed:340,
+      w:26, h:20, color:'#4fe3ff', accent:'#c6ff6b', thrusters:[0] },
+    { id:'scout', name:'NOVA SCOUT', cost:220,
+      desc:'Motores gemelos, ráfaga rapidísima.',
+      speed:300, fireInterval:0.17, damage:1, lives:3, bulletSpeed:380,
+      w:24, h:19, color:'#c6ff6b', accent:'#4fe3ff', thrusters:[0.38,-0.38] },
+    { id:'gunship', name:'VINDICATOR', cost:340,
+      desc:'Blindaje pesado, disparo contundente.',
+      speed:195, fireInterval:0.34, damage:2, lives:4, bulletSpeed:300,
+      w:30, h:23, color:'#ff9d4a', accent:'#ff6b4a', thrusters:[0.22,-0.22] },
+    { id:'stealth', name:'PHANTOM WING', cost:460,
+      desc:'Ala furtiva, ráfaga triple constante.',
+      speed:290, fireInterval:0.30, damage:1, lives:3, bulletSpeed:340,
+      w:27, h:19, color:'#8a6bff', accent:'#ff6bd8', alwaysSpread:true, thrusters:[0.15,-0.15] },
+    { id:'dread', name:'DREADNOUGHT', cost:680,
+      desc:'Nave insignia. Máximo poder de fuego.',
+      speed:210, fireInterval:0.26, damage:2, lives:5, bulletSpeed:360,
+      w:33, h:24, color:'#ff4f6d', accent:'#ffd24a', thrusters:[0.32,-0.32,0] },
+    // Tier 2/3 ships: gated by coste alto + cyclesCompleted (veces que el jugador ya
+    // venció al jefe de ciclo, en CUALQUIER partida — se persiste en localStorage). A
+    // diferencia de las 5 originales, que se compran en una sola buena partida, estas
+    // exigen haber sobrevivido ciclos completos primero, no solo juntar monedas.
+    { id:'valkyrie', name:'VALKYRIE', cost:1400, requireCycles:1,
+      desc:'Interceptora de élite. Cadencia brutal.',
+      speed:330, fireInterval:0.15, damage:1, lives:3, bulletSpeed:400,
+      w:25, h:19, color:'#4affc9', accent:'#ffe14a', thrusters:[0.34,-0.34] },
+    { id:'reaper', name:'REAPER', cost:1900, requireCycles:1,
+      desc:'Daño devastador por disparo. Frágil si te confiás.',
+      speed:230, fireInterval:0.22, damage:3, lives:4, bulletSpeed:420,
+      w:29, h:22, color:'#ff2d55', accent:'#0a0d18', thrusters:[0.24,-0.24] },
+    { id:'aegis', name:'AEGIS', cost:2800, requireCycles:2,
+      desc:'Fortaleza voladora. El casco más resistente de la flota.',
+      speed:180, fireInterval:0.30, damage:2, lives:7, bulletSpeed:320,
+      w:34, h:25, color:'#4a9eff', accent:'#c6ff6b', alwaysSpread:true, thrusters:[0.3,0,-0.3] },
+    { id:'singularity', name:'SINGULARITY', cost:4500, requireCycles:3,
+      desc:'El límite de la tecnología humana.',
+      speed:270, fireInterval:0.16, damage:3, lives:5, bulletSpeed:440,
+      w:31, h:23, color:'#c86bff', accent:'#f3efe8', alwaysSpread:true, thrusters:[0.35,0,-0.35] }
+  ];
+
+  const BOSS_DEFS = {
+    mini1:{ hp:55,  w:52, h:40, speed:85,  fireInterval:1.05, pattern:'triple',     color:'#ff6b4a', miniIndex:1 },
+    mini2:{ hp:85,  w:58, h:44, speed:95,  fireInterval:0.9,  pattern:'spreadWide', color:'#c6ff6b', miniIndex:2 },
+    mini3:{ hp:120, w:62, h:46, speed:105, fireInterval:0.78, pattern:'aimed',      color:'#4fe3ff', miniIndex:3 },
+    mini4:{ hp:160, w:66, h:48, speed:115, fireInterval:0.68, pattern:'burstAimed', color:'#ff9d4a', miniIndex:4 },
+    final:{ hp:260, w:76, h:54, speed:125, fireInterval:0.55, pattern:'phase',      color:'#8a6bff', miniIndex:0 }
+  };
+
+  /* Infinite loop: the 17-stage arc repeats forever as a "period". Each pass
+     through the period is a "loop" (loop 0 = first playthrough). Difficulty
+     (enemy stats, boss stats, kill quotas) scales up with the loop number,
+     capped so it never spirals out of control. */
+  const PERIOD = 17;
+  const MAX_LOOP_SCALE = 8;
+  const CHAPTER_STAGES = [4,8,12,16,17];
+  // The boss-fight narrative ("chapters") used to repeat verbatim every single loop,
+  // which read as static/repetitive once players got past their first couple of
+  // cycles. Chapters now advance through distinct narrative tiers as the player
+  // clears more full cycles — tier 0 is the original story, tiers 1-2 deepen it,
+  // and tier 3 (the last one) is written to read naturally forever, since every
+  // loop from then on reuses it.
+  const CHAPTER_TIER_COUNT = 4;
+  function chapterTierFor(loop){ return Math.min(loop, CHAPTER_TIER_COUNT - 1); }
+  const KILL_QUOTA_BASE = { 1:10, 2:13, 3:16, 5:19, 6:22, 7:25, 9:29, 10:32, 11:35, 13:39, 14:42, 15:45 };
+  const BOSS_KEY_FOR_STAGE_IN_PERIOD = { 4:'mini1', 8:'mini2', 12:'mini3', 16:'mini4', 17:'final' };
+
+  function stageInPeriod(stage){ const m = stage % PERIOD; return m === 0 ? PERIOD : m; }
+  function loopOf(stage){ return Math.floor((stage - 1) / PERIOD); }
+  function stageType(stage){
+    const s = stageInPeriod(stage);
+    if(s === 4 || s === 8 || s === 12 || s === 16) return 'miniboss';
+    if(s === 17) return 'cycleboss';
+    return 'normal';
+  }
+  function bossKeyForStage(stage){ return BOSS_KEY_FOR_STAGE_IN_PERIOD[stageInPeriod(stage)]; }
+  function killQuotaForStage(stage){
+    const base = KILL_QUOTA_BASE[stageInPeriod(stage)];
+    if(base === undefined) return undefined;
+    const loop = Math.min(loopOf(stage), MAX_LOOP_SCALE);
+    return base + loop*3;
+  }
+
+  const ENEMY_COLOR = { scout:'#ff6b4a', drone:'#8a6bff', turret:'#ff9d4a', swarmer:'#c6ff6b', bomber:'#ff4f6d', elite:'#ffd24a' };
+  const ENEMY_SCORE = { scout:150, drone:100, turret:180, swarmer:60, bomber:220, elite:260 };
+  const ENEMY_COIN  = { scout:4,   drone:3,   turret:5,   swarmer:2,  bomber:6,   elite:7 };
+
+  /* ---------------- i18n: language, UI strings, story ---------------- */
+  const T = {
+    en: {
+      dragInstr: 'to move',
+      attractHint: 'DRAG TO MOVE · YOUR LASER FIRES ON ITS OWN',
+      playBtn: 'TAP TO PLAY',
+      changeShipBtn: 'CHANGE SHIP',
+      launchBtn: 'LAUNCH MISSION',
+      equippedBtn: 'EQUIPPED',
+      equipBtn: 'EQUIP',
+      buyBtnPrefix: 'BUY — ',
+      missingCoinsPrefix: 'NEED ',
+      retryBtn: 'TAP TO RETRY',
+      continueBtn: 'CONTINUE',
+      continueOfferTitle: 'SHIP DOWN',
+      continueOfferHint: 'Watch a short video for one more life?',
+      watchAdContinueBtn: 'WATCH VIDEO: +1 LIFE',
+      declineContinueBtn: 'NO, END RUN',
+      alertMiniboss: 'ALERT — GUARDIAN DETECTED',
+      alertCycleboss: 'ALERT — CORE THREAT',
+      transmission: 'INCOMING TRANSMISSION',
+      statVel: 'VEL', statCad: 'RATE', statDmg: 'DMG', statLife: 'LIFE',
+      newRecord: '★ NEW RECORD ★',
+      stageLabel: 'STAGE', cycleLabel: 'CYCLE',
+      muteBtnLabelOff: 'Mute sound', muteBtnLabelOn: 'Unmute sound',
+      langBtnLabel: 'Change language',
+      prevShipLabel: 'Previous ship', nextShipLabel: 'Next ship',
+      shipsTab: 'SHIPS', accessoriesTab: 'ACCESSORIES',
+      lockedCyclePrefix: 'CLEAR CYCLE ', lockedCycleSuffix: ' FIRST',
+      upgradeBtnPrefix: 'UPGRADE — ', maxedBtn: 'MAX LEVEL',
+      slotNucleo: 'WEAPON CORE', slotMotor: 'IMPULSE ENGINE', slotBlindaje: 'REACTIVE ARMOR',
+      levelLabel: 'LV', currentLabel: 'NOW', nextLabel: 'NEXT', startShieldLabel: 'STARTING SHIELD',
+      watchAdBtn: 'WATCH AD: +50 \u{1F4B0}', removeAdsBtn: 'REMOVE ADS', adsRemovedLabel: 'ADS REMOVED', restoreBtn: 'Restore purchase',
+      srDesc: "Astro Siege: an arcade shooter with a sci-fi story told between stages, in an endless loop that only grows more difficult. Choose your ship in the hangar; each one has different speed, fire rate, damage and life, and unlocks with coins you earn by playing. Drag your finger to move in any direction, or use the arrow keys. Your ship fires automatically. Collect colored power-ups and defeat the guardians of each sector.",
+      shipDesc: {
+        interceptor: 'Balanced, great for starting out.',
+        scout: 'Twin engines, blistering-fast burst.',
+        gunship: 'Heavy armor, punishing firepower.',
+        stealth: 'Stealth wing, constant triple spread.',
+        dread: 'Flagship. Maximum firepower.',
+        valkyrie: 'Elite interceptor. Brutal fire rate — for pilots who already survived one cycle.',
+        reaper: 'Devastating damage per shot. Fragile if you get cocky.',
+        aegis: 'Flying fortress. The toughest hull in the fleet.',
+        singularity: 'The edge of human engineering. Only for advanced-cycle pilots.'
+      },
+      introText: "DISTRESS SIGNAL — SECTOR 7.\nYou're the only ship available.\nInvestigate the source.",
+      chaptersByTier: [
+        [
+          "A guardian wakes among the wreckage.\nIt isn't protecting a place — it's protecting an idea.\nThat someone, someday, has to answer this signal.",
+          "Behind the second guardian, a pattern:\nevery pilot who made it this far\nleft their name carved into the last one's hull.",
+          "The third guardian doesn't attack by instinct.\nIt attacks because it remembers losing before,\nand it doesn't plan to repeat that.",
+          "The last guardian before the core\nis the only one that remembers winning, once.\nConvincing it to lose again won't be easy.",
+          "The source reveals itself. It's you —\nthe first time you ever did this,\nstill fighting, still refusing to give up."
+        ],
+        [
+          "The guardian at this post doesn't look the same.\nIt has learned from the last attempt — yours.\nSomewhere, that memory survives.",
+          "The names on the second guardian's hull\nkeep multiplying.\nYours is already there, carved before you arrived.",
+          "The third guardian pauses before it strikes.\nNot fear — recognition.\nIt has fought you before, more times than you know.",
+          "The fourth guardian speaks, for the first time, without words:\na memory shared directly,\nof every pilot who almost won.",
+          "The core doesn't reset. It archives.\nEvery version of you that ever answered this signal\nis still running, somewhere inside it."
+        ],
+        [
+          "The guardian doesn't fight to stop you anymore.\nIt fights to make sure you're ready\nfor what's next.",
+          "A pattern within the pattern:\nthe names aren't a memorial.\nThey're a countdown. Each cycle, fewer are added.",
+          "The third guardian shows you something instead of attacking:\na version of the core, still intact,\nfrom before the first cycle ever began.",
+          "The fourth guardian finally loses — on purpose.\n\"You were always going to get here,\" it transmits.\n\"The question was always what you'd do next.\"",
+          "At the core, a choice waits, not a fight:\nstay in the loop that made you strong,\nor step past it into a sector no cycle has ever mapped."
+        ],
+        [
+          "Every guardian remembers a different pilot.\nAll of them remember you.",
+          "The hull has no room left for more names.\nYours is carved over itself, again and again, deeper each time.",
+          "The third guardian no longer counts the times it has lost.\nOnly you do.",
+          "The fourth guardian salutes before the fight begins now.\nSome habits outlast the reason for them.",
+          "The core doesn't ask why you keep answering the signal.\nBy now, neither do you."
+        ]
+      ],
+      ambient: [
+        "The drones aren't guarding this at random.\nThey're guarding something buried in the asteroid.",
+        "The beacon changes its message.\n\"The cycle continues,\" it repeats. Again and again.",
+        "A data fragment reveals hundreds of cycles.\nAll of them end the same way.",
+        "Among a sentinel's remains, a name.\nIt matches your own service record.",
+        "The beacon isn't guiding you to a place.\nIt's guiding you to a decision.",
+        "Something ahead recognizes your ship\nand lowers its guard. Just for a moment.",
+        "Behind the stronghold: an archive.\nEvery pilot who came before you, logged.",
+        "You finally understand: the cycle isn't a trap.\nIt's a test that resets when it fails."
+      ],
+      loopBridges: [
+        "The sector won't let you go.\nThe signal sounds again, louder than before.\nThe cycle doesn't break: it needs you again.",
+        "The signal changes pitch this time — not a plea, a question.\nSomething out there has been waiting\nto see what you'd do twice.",
+        "You stop counting which time this is.\nThe sector doesn't count either.\nIt only remembers that you always come back."
+      ],
+      loopShorts: [
+        "CYCLE {N}.\nThe signal never stopped calling.\nYou answer again.",
+        "CYCLE {N}.\nNo one is counting anymore.\nExcept, somehow, you.",
+        "CYCLE {N}.\nThe sector resets around you.\nYou don't.",
+        "CYCLE {N}.\nAnother version of the same dawn.\nAnother version of the same answer."
+      ]
+    },
+    es: {
+      dragInstr: 'para moverte',
+      attractHint: 'ARRASTRÁ PARA MOVERTE · EL LÁSER DISPARA SOLO',
+      playBtn: 'TOCÁ PARA JUGAR',
+      changeShipBtn: 'CAMBIAR NAVE',
+      launchBtn: 'LANZAR MISIÓN',
+      equippedBtn: 'EQUIPADA',
+      equipBtn: 'EQUIPAR',
+      buyBtnPrefix: 'COMPRAR — ',
+      missingCoinsPrefix: 'FALTAN ',
+      retryBtn: 'TOCÁ PARA REINTENTAR',
+      continueBtn: 'CONTINUAR',
+      continueOfferTitle: 'NAVE DESTRUIDA',
+      continueOfferHint: '¿Mirás un video corto por una vida extra?',
+      watchAdContinueBtn: 'VER VIDEO: +1 VIDA',
+      declineContinueBtn: 'NO, TERMINAR',
+      alertMiniboss: 'ALERTA — GUARDIÁN DETECTADO',
+      alertCycleboss: 'ALERTA — AMENAZA DEL NÚCLEO',
+      transmission: 'TRANSMISIÓN ENTRANTE',
+      statVel: 'VEL', statCad: 'CAD', statDmg: 'DAÑO', statLife: 'VIDA',
+      newRecord: '★ NUEVO RÉCORD ★',
+      stageLabel: 'ETAPA', cycleLabel: 'CICLO',
+      muteBtnLabelOff: 'Silenciar sonido', muteBtnLabelOn: 'Activar sonido',
+      langBtnLabel: 'Cambiar idioma',
+      prevShipLabel: 'Nave anterior', nextShipLabel: 'Nave siguiente',
+      shipsTab: 'NAVES', accessoriesTab: 'ACCESORIOS',
+      lockedCyclePrefix: 'COMPLETÁ EL CICLO ', lockedCycleSuffix: ' PRIMERO',
+      upgradeBtnPrefix: 'MEJORAR — ', maxedBtn: 'NIVEL MÁXIMO',
+      slotNucleo: 'NÚCLEO DE ARMAS', slotMotor: 'MOTOR DE IMPULSO', slotBlindaje: 'BLINDAJE REACTIVO',
+      levelLabel: 'NV', currentLabel: 'AHORA', nextLabel: 'SIGUIENTE', startShieldLabel: 'ESCUDO INICIAL',
+      watchAdBtn: 'VER ANUNCIO: +50 \u{1F4B0}', removeAdsBtn: 'QUITAR ANUNCIOS', adsRemovedLabel: 'ANUNCIOS QUITADOS', restoreBtn: 'Restaurar compra',
+      srDesc: "Astro Siege: un shooter arcade con una historia de ciencia ficción contada entre etapas, en un ciclo que nunca termina y aumenta de dificultad. Elegí tu nave en el hangar; cada una tiene velocidad, cadencia, daño y vida distintos, y se desbloquea con monedas que ganás jugando. Arrastrá el dedo para moverte en cualquier dirección, o usá las flechas del teclado. Tu nave dispara sola. Recogé potenciadores de colores y superá a los guardianes de cada sector.",
+      shipDesc: {
+        interceptor: 'Equilibrada, ideal para empezar.',
+        scout: 'Motores gemelos, ráfaga rapidísima.',
+        gunship: 'Blindaje pesado, disparo contundente.',
+        stealth: 'Ala furtiva, ráfaga triple constante.',
+        dread: 'Nave insignia. Máximo poder de fuego.',
+        valkyrie: 'Interceptora de élite. Cadencia brutal — para pilotos que ya sobrevivieron un ciclo.',
+        reaper: 'Daño devastador por disparo. Frágil si te confiás de más.',
+        aegis: 'Fortaleza voladora. El casco más resistente de la flota.',
+        singularity: 'El límite de la ingeniería humana. Solo para pilotos de ciclos avanzados.'
+      },
+      introText: "SEÑAL DE SOCORRO — SECTOR 7.\nSos la única nave disponible.\nInvestigá la fuente.",
+      chaptersByTier: [
+        [
+          "Un guardián despierta entre los restos.\nNo protege un lugar: protege una idea.\nQue alguien, alguna vez, tiene que responder a esta señal.",
+          "Detrás del segundo guardián, un patrón:\ncada piloto que llegó hasta acá\ndejó su nombre grabado en el casco del anterior.",
+          "El tercer guardián no ataca por instinto.\nAtaca porque recuerda haber perdido antes,\ny no piensa repetirlo.",
+          "El último guardián antes del núcleo\nes el único que recuerda haber ganado, una vez.\nNo va a ser fácil convencerlo de perder de nuevo.",
+          "La fuente se revela. Sos vos —\nla primera vez que hiciste esto,\ntodavía peleando, todavía sin rendirte."
+        ],
+        [
+          "El guardián de este puesto ya no es el mismo.\nAprendió del último intento — el tuyo.\nEn algún lado, ese recuerdo sobrevive.",
+          "Los nombres en el casco del segundo guardián\nno dejan de multiplicarse.\nEl tuyo ya estaba ahí, grabado antes de que llegaras.",
+          "El tercer guardián duda antes de atacar.\nNo es miedo: es reconocimiento.\nYa peleó contra vos, más veces de las que sabés.",
+          "El cuarto guardián habla, por primera vez, sin palabras:\nun recuerdo compartido directamente,\nde cada piloto que casi ganó.",
+          "El núcleo no reinicia. Archiva.\nCada versión tuya que alguna vez respondió esta señal\nsigue corriendo, en algún lugar dentro de él."
+        ],
+        [
+          "El guardián ya no pelea para detenerte.\nPelea para asegurarse de que estés listo\npara lo que sigue.",
+          "Un patrón dentro del patrón:\nlos nombres no son un memorial.\nSon una cuenta regresiva. Cada ciclo, se agregan menos.",
+          "El tercer guardián, en vez de atacar, te muestra algo:\nuna versión del núcleo, todavía intacta,\nde antes de que empezara el primer ciclo.",
+          "El cuarto guardián por fin pierde — a propósito.\n\"Siempre ibas a llegar hasta acá\", transmite.\n\"La pregunta siempre fue qué harías después\".",
+          "En el núcleo espera una decisión, no una pelea:\nquedarte en el ciclo que te hizo fuerte,\no cruzar hacia un sector que ningún ciclo llegó a mapear."
+        ],
+        [
+          "Cada guardián recuerda a un piloto distinto.\nTodos te recuerdan a vos.",
+          "En el casco ya no queda lugar para más nombres.\nEl tuyo se graba encima de sí mismo, otra vez, cada vez más profundo.",
+          "El tercer guardián ya no cuenta las veces que perdió.\nSolo vos lo hacés.",
+          "El cuarto guardián ahora te saluda antes de que empiece la pelea.\nAlgunas costumbres sobreviven a la razón que las creó.",
+          "El núcleo ya no pregunta por qué seguís respondiendo la señal.\nA esta altura, vos tampoco."
+        ]
+      ],
+      ambient: [
+        "Los drones no protegen al azar.\nCustodian algo enterrado en el asteroide.",
+        "La baliza cambia su mensaje.\n\"El ciclo continúa\", repite. Una y otra vez.",
+        "Un fragmento de datos revela cientos de ciclos.\nTodos terminan de la misma forma.",
+        "Entre los restos de un centinela, un nombre.\nCoincide con tu propio registro de servicio.",
+        "La baliza no te está guiando a un lugar.\nTe está guiando a una decisión.",
+        "Algo adelante reconoce tu nave\ny baja la guardia. Solo por un instante.",
+        "Detrás del baluarte: un archivo.\nCada piloto que llegó antes que vos, registrado.",
+        "Entendés, por fin: el ciclo no es una trampa.\nEs una prueba que se reinicia cuando falla."
+      ],
+      loopBridges: [
+        "El sector no te deja ir.\nLa señal vuelve a sonar, más fuerte que antes.\nEl ciclo no se rompe: te necesita otra vez.",
+        "La señal cambia de tono esta vez — no es un ruego, es una pregunta.\nAlgo ahí afuera estuvo esperando\npara ver qué harías la segunda vez.",
+        "Dejás de contar qué vuelta es esta.\nEl sector tampoco cuenta.\nSolo recuerda que siempre volvés."
+      ],
+      loopShorts: [
+        "CICLO {N}.\nLa señal nunca dejó de sonar.\nVolvés a responder.",
+        "CICLO {N}.\nYa nadie lleva la cuenta.\nExcepto, de alguna forma, vos.",
+        "CICLO {N}.\nEl sector se reinicia a tu alrededor.\nVos no.",
+        "CICLO {N}.\nOtra versión del mismo amanecer.\nOtra versión de la misma respuesta."
+      ]
+    },
+    pt: {
+      dragInstr: 'para se mover',
+      attractHint: 'ARRASTE PARA SE MOVER · O LASER DISPARA SOZINHO',
+      playBtn: 'TOQUE PARA JOGAR',
+      changeShipBtn: 'TROCAR NAVE',
+      launchBtn: 'LANÇAR MISSÃO',
+      equippedBtn: 'EQUIPADA',
+      equipBtn: 'EQUIPAR',
+      buyBtnPrefix: 'COMPRAR — ',
+      missingCoinsPrefix: 'FALTAM ',
+      retryBtn: 'TOQUE PARA TENTAR DE NOVO',
+      continueBtn: 'CONTINUAR',
+      continueOfferTitle: 'NAVE DESTRUÍDA',
+      continueOfferHint: 'Assistir um vídeo curto por mais uma vida?',
+      watchAdContinueBtn: 'VER VÍDEO: +1 VIDA',
+      declineContinueBtn: 'NÃO, ENCERRAR',
+      alertMiniboss: 'ALERTA — GUARDIÃO DETECTADO',
+      alertCycleboss: 'ALERTA — AMEAÇA DO NÚCLEO',
+      transmission: 'TRANSMISSÃO RECEBIDA',
+      statVel: 'VEL', statCad: 'CAD', statDmg: 'DANO', statLife: 'VIDA',
+      newRecord: '★ NOVO RECORDE ★',
+      stageLabel: 'ETAPA', cycleLabel: 'CICLO',
+      muteBtnLabelOff: 'Silenciar som', muteBtnLabelOn: 'Ativar som',
+      langBtnLabel: 'Mudar idioma',
+      prevShipLabel: 'Nave anterior', nextShipLabel: 'Próxima nave',
+      shipsTab: 'NAVES', accessoriesTab: 'ACESSÓRIOS',
+      lockedCyclePrefix: 'COMPLETE O CICLO ', lockedCycleSuffix: ' PRIMEIRO',
+      upgradeBtnPrefix: 'MELHORAR — ', maxedBtn: 'NÍVEL MÁXIMO',
+      slotNucleo: 'NÚCLEO DE ARMAS', slotMotor: 'MOTOR DE IMPULSO', slotBlindaje: 'BLINDAGEM REATIVA',
+      levelLabel: 'NV', currentLabel: 'AGORA', nextLabel: 'PRÓXIMO', startShieldLabel: 'ESCUDO INICIAL',
+      watchAdBtn: 'VER ANÚNCIO: +50 \u{1F4B0}', removeAdsBtn: 'REMOVER ANÚNCIOS', adsRemovedLabel: 'ANÚNCIOS REMOVIDOS', restoreBtn: 'Restaurar compra',
+      srDesc: "Astro Siege: um shooter arcade com uma história de ficção científica contada entre as fases, em um ciclo infinito que só aumenta de dificuldade. Escolha sua nave no hangar; cada uma tem velocidade, cadência, dano e vida diferentes, e é desbloqueada com moedas que você ganha jogando. Arraste o dedo para se mover em qualquer direção, ou use as setas do teclado. Sua nave dispara sozinha. Colete power-ups coloridos e derrote os guardiões de cada setor.",
+      shipDesc: {
+        interceptor: 'Equilibrada, ideal para começar.',
+        scout: 'Motores gêmeos, rajada ultrarrápida.',
+        gunship: 'Blindagem pesada, tiro contundente.',
+        stealth: 'Asa furtiva, disparo triplo constante.',
+        dread: 'Nave-insígnia. Poder de fogo máximo.',
+        valkyrie: 'Interceptadora de elite. Cadência brutal — para pilotos que já sobreviveram a um ciclo.',
+        reaper: 'Dano devastador por tiro. Frágil se você se arriscar demais.',
+        aegis: 'Fortaleza voadora. O casco mais resistente da frota.',
+        singularity: 'O limite da engenharia humana. Só para pilotos de ciclos avançados.'
+      },
+      introText: "SINAL DE SOCORRO — SETOR 7.\nVocê é a única nave disponível.\nInvestigue a origem.",
+      chaptersByTier: [
+        [
+          "Um guardião desperta entre os destroços.\nEle não protege um lugar — protege uma ideia.\nQue alguém, algum dia, precisa responder a esse sinal.",
+          "Atrás do segundo guardião, um padrão:\ncada piloto que chegou até aqui\ndeixou seu nome gravado no casco do anterior.",
+          "O terceiro guardião não ataca por instinto.\nAtaca porque lembra de ter perdido antes,\ne não pretende repetir isso.",
+          "O último guardião antes do núcleo\né o único que lembra de ter vencido, uma vez.\nConvencê-lo a perder de novo não vai ser fácil.",
+          "A origem se revela. É você —\na primeira vez que fez isso,\nainda lutando, ainda sem desistir."
+        ],
+        [
+          "O guardião deste posto não é mais o mesmo.\nEle aprendeu com a última tentativa — a sua.\nEm algum lugar, essa lembrança sobrevive.",
+          "Os nomes no casco do segundo guardião\nnão param de se multiplicar.\nO seu já estava lá, gravado antes de você chegar.",
+          "O terceiro guardião hesita antes de atacar.\nNão é medo: é reconhecimento.\nEle já lutou contra você, mais vezes do que imagina.",
+          "O quarto guardião fala, pela primeira vez, sem palavras:\numa lembrança compartilhada diretamente,\nde cada piloto que quase venceu.",
+          "O núcleo não reinicia. Ele arquiva.\nCada versão sua que já respondeu a esse sinal\nainda está rodando, em algum lugar dentro dele."
+        ],
+        [
+          "O guardião não luta mais para te deter.\nLuta para garantir que você esteja pronto\npara o que vem a seguir.",
+          "Um padrão dentro do padrão:\nos nomes não são um memorial.\nSão uma contagem regressiva. A cada ciclo, menos são adicionados.",
+          "O terceiro guardião, em vez de atacar, mostra algo a você:\numa versão do núcleo, ainda intacta,\nde antes do primeiro ciclo começar.",
+          "O quarto guardião finalmente perde — de propósito.\n\"Você sempre ia chegar até aqui\", ele transmite.\n\"A pergunta sempre foi o que você faria depois\".",
+          "No núcleo espera uma escolha, não uma luta:\nficar no ciclo que te tornou forte,\nou seguir além, para um setor que nenhum ciclo chegou a mapear."
+        ],
+        [
+          "Cada guardião lembra de um piloto diferente.\nTodos eles lembram de você.",
+          "No casco não sobra mais espaço para nomes.\nO seu é gravado sobre si mesmo, de novo, cada vez mais fundo.",
+          "O terceiro guardião já não conta quantas vezes perdeu.\nSó você conta.",
+          "O quarto guardião agora te saúda antes da luta começar.\nAlgumas rotinas sobrevivem ao motivo que as criou.",
+          "O núcleo não pergunta mais por que você continua respondendo ao sinal.\nA essa altura, você também não."
+        ]
+      ],
+      ambient: [
+        "Os drones não protegem isso ao acaso.\nEles guardam algo enterrado no asteroide.",
+        "A baliza muda sua mensagem.\n\"O ciclo continua\", ela repete. Sem parar.",
+        "Um fragmento de dados revela centenas de ciclos.\nTodos terminam da mesma forma.",
+        "Entre os restos de uma sentinela, um nome.\nBate com o seu próprio registro de serviço.",
+        "A baliza não está te guiando a um lugar.\nEstá te guiando a uma decisão.",
+        "Algo à frente reconhece sua nave\ne baixa a guarda. Só por um instante.",
+        "Atrás do bastião: um arquivo.\nCada piloto que chegou antes de você, registrado.",
+        "Você finalmente entende: o ciclo não é uma armadilha.\nÉ um teste que reinicia quando falha."
+      ],
+      loopBridges: [
+        "O setor não deixa você ir embora.\nO sinal soa de novo, mais forte que antes.\nO ciclo não se quebra: ele precisa de você outra vez.",
+        "O sinal muda de tom dessa vez — não é um pedido, é uma pergunta.\nAlgo lá fora estava esperando\npara ver o que você faria da segunda vez.",
+        "Você para de contar que volta é essa.\nO setor também não conta.\nSó lembra que você sempre volta."
+      ],
+      loopShorts: [
+        "CICLO {N}.\nO sinal nunca parou de chamar.\nVocê responde de novo.",
+        "CICLO {N}.\nNinguém mais está contando.\nExceto, de alguma forma, você.",
+        "CICLO {N}.\nO setor se reinicia ao seu redor.\nVocê não.",
+        "CICLO {N}.\nOutra versão do mesmo amanhecer.\nOutra versão da mesma resposta."
+      ]
+    }
+  };
+  const LANG_ORDER = ['en','es','pt'];
+  let lang = 'en';
+  try{
+    const savedLang = localStorage.getItem('astro-siege-lang');
+    if(savedLang && T[savedLang]){
+      lang = savedLang;
+    } else {
+      const nav = ((navigator.language || navigator.userLanguage || 'en') + '').toLowerCase();
+      if(nav.indexOf('es') === 0) lang = 'es';
+      else if(nav.indexOf('pt') === 0) lang = 'pt';
+      else lang = 'en';
+    }
+  }catch(e){ lang = 'en'; }
+
+  function t(key){
+    const dict = T[lang] || T.en;
+    if(dict[key] !== undefined) return dict[key];
+    return T.en[key] !== undefined ? T.en[key] : key;
+  }
+  function shipDescText(id){
+    const dict = T[lang] || T.en;
+    if(dict.shipDesc && dict.shipDesc[id]) return dict.shipDesc[id];
+    return (T.en.shipDesc && T.en.shipDesc[id]) || '';
+  }
+  function storyForStage(stage){
+    const dict = T[lang] || T.en;
+    const s = stageInPeriod(stage);
+    const loop = loopOf(stage);
+    if(s === 1){
+      // One-time bridge text the first few times the player crosses into a new
+      // narrative tier (loop 1, 2, 3); from then on (loop >= CHAPTER_TIER_COUNT)
+      // the tier is fixed, so we rotate through a small pool of short "cycle
+      // announcement" lines instead of repeating the exact same sentence forever.
+      if(loop >= 1 && loop < CHAPTER_TIER_COUNT) return dict.loopBridges[loop - 1];
+      if(loop >= CHAPTER_TIER_COUNT){
+        const shortIdx = (loop - CHAPTER_TIER_COUNT) % dict.loopShorts.length;
+        return dict.loopShorts[shortIdx].replace('{N}', String(loop + 1));
+      }
+    }
+    const ci = CHAPTER_STAGES.indexOf(s);
+    if(ci !== -1) return dict.chaptersByTier[chapterTierFor(loop)][ci];
+    const idx = (s + loop*3) % dict.ambient.length;
+    return dict.ambient[idx];
+  }
+
+  function typeText(el, text, speed){
+    if(!el) return;
+    if(el._typer) clearInterval(el._typer);
+    if(reduceMotion){ el.textContent = text; return; }
+    let i = 0;
+    el.textContent = '';
+    el._typer = setInterval(()=>{
+      i++;
+      el.textContent = text.slice(0, i);
+      if(i >= text.length) clearInterval(el._typer);
+    }, 16);
+  }
+
+  /* ---------------- audio ---------------- */
+  const AudioSys = (function(){
+    let ctx = null, muted = false, musicTimer = null, musicStep = 0;
+    const bassline = [110, 110, 146.83, 110, 130.81, 110, 98, 110];
+    function ensure(){
+      if(!ctx){ try{ ctx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
+      return ctx;
+    }
+    function tone(freq, dur, type, gain, delay){
+      const c = ensure(); if(!c || muted) return;
+      const t0 = c.currentTime + (delay || 0);
+      const osc = c.createOscillator(); const g = c.createGain();
+      osc.type = type || 'square';
+      osc.frequency.setValueAtTime(freq, t0);
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(gain || 0.15, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g).connect(c.destination);
+      osc.start(t0); osc.stop(t0 + dur + 0.02);
+    }
+    function noise(dur, gain, filterFreq){
+      const c = ensure(); if(!c || muted) return;
+      const bufferSize = Math.floor(c.sampleRate * dur);
+      const buffer = c.createBuffer(1, bufferSize, c.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let i=0;i<bufferSize;i++) data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
+      const src = c.createBufferSource(); src.buffer = buffer;
+      const filt = c.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = filterFreq || 1200;
+      const g = c.createGain(); g.gain.value = gain || 0.2;
+      src.connect(filt).connect(g).connect(c.destination);
+      src.start();
+    }
+    function shoot(){ tone(880, 0.06, 'square', 0.05); }
+    function explode(){ noise(0.25, 0.16, 900); }
+    function hit(){ noise(0.3, 0.2, 400); }
+    function pickup(){ tone(660, 0.08, 'triangle', 0.12); tone(990, 0.09, 'triangle', 0.1, 0.07); }
+    function bossHit(){ tone(220, 0.08, 'sawtooth', 0.14); }
+    function victory(){ [523,659,784,1046].forEach((f,i)=>tone(f,0.18,'triangle',0.14,i*0.14)); }
+    function gameOverSfx(){ tone(200,0.4,'sawtooth',0.15); tone(150,0.5,'sawtooth',0.15,0.15); }
+    function startMusic(){
+      if(musicTimer) return;
+      musicStep = 0;
+      musicTimer = setInterval(()=>{
+        if(!muted) tone(bassline[musicStep % bassline.length], 0.18, 'sine', 0.045);
+        musicStep++;
+      }, 260);
+    }
+    function stopMusic(){ if(musicTimer){ clearInterval(musicTimer); musicTimer = null; } }
+    function setMuted(m){ muted = m; }
+    function resume(){ const c = ensure(); if(c && c.state === 'suspended') c.resume(); }
+    return { shoot, explode, hit, pickup, bossHit, victory, gameOverSfx, startMusic, stopMusic, setMuted, resume };
+  })();
+
+  let muted = false;
+  muteBtn.addEventListener('click', ()=>{
+    muted = !muted;
+    AudioSys.setMuted(muted);
+    AudioSys.resume();
+    muteBtn.textContent = muted ? '\u{1F507}' : '\u{1F50A}';
+    muteBtn.setAttribute('aria-pressed', String(muted));
+    muteBtn.setAttribute('aria-label', muted ? t('muteBtnLabelOn') : t('muteBtnLabelOff'));
+  });
+
+  const langBtn = document.getElementById('langBtn');
+  function updateLangBtn(){
+    langBtn.textContent = lang.toUpperCase();
+    langBtn.setAttribute('aria-label', t('langBtnLabel'));
+  }
+  function applyStaticText(){
+    try{ document.documentElement.lang = lang; }catch(e){}
+    const srDesc = document.getElementById('srDesc');
+    if(srDesc) srDesc.textContent = t('srDesc');
+    const dragInstr = document.getElementById('dragInstr');
+    if(dragInstr) dragInstr.textContent = t('dragInstr');
+    muteBtn.setAttribute('aria-label', muted ? t('muteBtnLabelOn') : t('muteBtnLabelOff'));
+    updateLangBtn();
+  }
+  function rerenderCurrentScreen(){
+    if(state.mode === 'hangar') renderHangar();
+    else if(state.mode === 'attract') renderIntro();
+    else if(state.mode === 'interstitial' && pendingNextStage !== null) renderInterstitial(pendingNextStage);
+    else if(state.mode === 'gameover') renderGameOver(lastNewHigh);
+  }
+  function setLanguage(newLang){
+    if(!T[newLang] || newLang === lang){ return; }
+    lang = newLang;
+    try{ localStorage.setItem('astro-siege-lang', lang); }catch(e){}
+    applyStaticText();
+    rerenderCurrentScreen();
+  }
+  langBtn.addEventListener('click', ()=>{
+    const idx = LANG_ORDER.indexOf(lang);
+    setLanguage(LANG_ORDER[(idx + 1) % LANG_ORDER.length]);
+  });
+
+  let W = 340, H = 560;
+
+  function fit(){
+    const rect = canvas.getBoundingClientRect();
+    W = rect.width || 340;
+    H = rect.height || 560;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', fit);
+
+  function pad(n){ return String(Math.max(0, Math.floor(n))).padStart(6, '0'); }
+
+  let hiscore = 0;
+  try{ hiscore = parseInt(localStorage.getItem('astro-siege-hiscore') || '0', 10) || 0; }catch(e){}
+  hiEl.textContent = pad(hiscore);
+
+  /* ---------------- persisted meta: coins + ships + accessories ---------------- */
+
+  const ACCESSORIES = {
+    nucleo:   { nameKey:'slotNucleo',   tiers:[ {cost:300,dmgMul:1.08}, {cost:900,dmgMul:1.18}, {cost:2200,dmgMul:1.30,rateMul:1.10} ] },
+    motor:    { nameKey:'slotMotor',    tiers:[ {cost:300,speedMul:1.08}, {cost:900,speedMul:1.18}, {cost:2200,speedMul:1.30} ] },
+    blindaje: { nameKey:'slotBlindaje', tiers:[ {cost:300,extraLives:1}, {cost:900,extraLives:2}, {cost:2200,extraLives:3,startShield:true} ] }
+  };
+  const ACCESSORY_ORDER = ['nucleo','motor','blindaje'];
+
+  let coins = 0;
+  let ownedShips = ['interceptor'];
+  let selectedShipId = 'interceptor';
+  let accessoryTier = { nucleo:0, motor:0, blindaje:0 };
+  let cyclesCompleted = 0;
+  try{
+    coins = parseInt(localStorage.getItem('astro-siege-coins') || '0', 10) || 0;
+    const ownedRaw = localStorage.getItem('astro-siege-owned');
+    if(ownedRaw){
+      const arr = JSON.parse(ownedRaw);
+      if(Array.isArray(arr) && arr.length) ownedShips = arr;
+    }
+    const sel = localStorage.getItem('astro-siege-selected');
+    if(sel) selectedShipId = sel;
+    const accRaw = localStorage.getItem('astro-siege-accessories');
+    if(accRaw){
+      const acc = JSON.parse(accRaw);
+      ACCESSORY_ORDER.forEach(function(k){ if(typeof acc[k] === 'number') accessoryTier[k] = acc[k]; });
+    }
+    cyclesCompleted = parseInt(localStorage.getItem('astro-siege-cycles') || '0', 10) || 0;
+  }catch(e){}
+  if(ownedShips.indexOf('interceptor') === -1) ownedShips.push('interceptor');
+  if(ownedShips.indexOf(selectedShipId) === -1) selectedShipId = 'interceptor';
+
+  function saveMeta(){
+    try{
+      localStorage.setItem('astro-siege-coins', String(coins));
+      localStorage.setItem('astro-siege-owned', JSON.stringify(ownedShips));
+      localStorage.setItem('astro-siege-selected', selectedShipId);
+      localStorage.setItem('astro-siege-accessories', JSON.stringify(accessoryTier));
+      localStorage.setItem('astro-siege-cycles', String(cyclesCompleted));
+    }catch(e){}
+  }
+  function awardCoins(n){ coins += n; }
+
+  function accTier(key){ return accessoryTier[key] || 0; }
+  function effSpeed(){
+    const tier = accTier('motor');
+    const def = tier > 0 ? ACCESSORIES.motor.tiers[tier-1] : null;
+    return currentShip.speed * (def && def.speedMul ? def.speedMul : 1);
+  }
+  function effFireInterval(){
+    const tier = accTier('nucleo');
+    const def = tier > 0 ? ACCESSORIES.nucleo.tiers[tier-1] : null;
+    return currentShip.fireInterval / (def && def.rateMul ? def.rateMul : 1);
+  }
+  function effDamage(){
+    const tier = accTier('nucleo');
+    const def = tier > 0 ? ACCESSORIES.nucleo.tiers[tier-1] : null;
+    return currentShip.damage * (def && def.dmgMul ? def.dmgMul : 1);
+  }
+  function effLives(){
+    const tier = accTier('blindaje');
+    const def = tier > 0 ? ACCESSORIES.blindaje.tiers[tier-1] : null;
+    return currentShip.lives + (def && def.extraLives ? def.extraLives : 0);
+  }
+  function accTierEffectText(tierDef){
+    const parts = [];
+    if(tierDef.dmgMul) parts.push('+' + Math.round((tierDef.dmgMul-1)*100) + '% ' + t('statDmg'));
+    if(tierDef.rateMul) parts.push('+' + Math.round((tierDef.rateMul-1)*100) + '% ' + t('statCad'));
+    if(tierDef.speedMul) parts.push('+' + Math.round((tierDef.speedMul-1)*100) + '% ' + t('statVel'));
+    if(tierDef.extraLives) parts.push('+' + tierDef.extraLives + ' ' + t('statLife'));
+    if(tierDef.startShield) parts.push(t('startShieldLabel'));
+    return parts.join(' · ');
+  }
+
+  const state = {
+    mode:'hangar', score:0, lives:3, t:0, stage:1, bossActive:false,
+    stageKills:0, stageClearing:false, stageClearTimer:0,
+    spawnTimer:0, spawnInterval:1.15,
+    fireTimer:0, fireInterval:0.28,
+    rapidUntil:0, shieldUntil:0, spreadUntil:0, shake:0
+  };
+
+  const player = { x:170, y:514, w:26, h:20, targetX:170, targetY:514 };
+  let currentShip = SHIPS[0];
+  let bullets = [], enemies = [], enemyBullets = [], particles = [], pickups = [], boss = null;
+  const keys = {};
+  let pointerActive = false;
+  let dragStartX = 0, dragStartY = 0, shipStartX = 0, shipStartY = 0;
+  let pendingContinue = null;
+  let pendingNextStage = null;
+  let lastNewHigh = false;
+  let usedContinueThisRun = false;
+
+  function isRapid(){ return state.t < state.rapidUntil; }
+  function isShielded(){ return state.t < state.shieldUntil; }
+  function isSpread(){ return state.t < state.spreadUntil; }
+
+  function resetGame(){
+    fit();
+    currentShip = SHIPS.find(s=>s.id === selectedShipId) || SHIPS[0];
+    player.w = currentShip.w; player.h = currentShip.h;
+    player.x = W / 2; player.targetX = player.x; player.y = H - 46; player.targetY = player.y;
+    bullets = []; enemies = []; enemyBullets = []; particles = []; pickups = []; boss = null;
+    state.score = 0; state.lives = effLives(); state.t = 0; state.stage = 1; state.bossActive = false;
+    state.stageKills = 0; state.stageClearing = false; state.stageClearTimer = 0;
+    state.spawnTimer = 0; state.spawnInterval = 1.15;
+    state.fireTimer = 0; state.fireInterval = effFireInterval();
+    state.rapidUntil = 0; state.shieldUntil = 0; state.spreadUntil = 0; state.shake = 0;
+    // Blindaje Mk3 arranca cada partida con 3s de escudo, igual que el bonus de "continuar".
+    if(accTier('blindaje') >= ACCESSORIES.blindaje.tiers.length) state.shieldUntil = 3;
+    usedContinueThisRun = false;
+    bossBar.hidden = true; bossBarFill.style.width = '100%';
+    updateHud();
+  }
+
+  function updateHud(){
+    scoreEl.textContent = pad(state.score);
+    livesEl.innerHTML = '';
+    for(let i=0;i<state.lives;i++){
+      const s = document.createElement('span');
+      s.className = 'life-icon';
+      livesEl.appendChild(s);
+    }
+  }
+
+  /* ---------------- hangar (ship select) ---------------- */
+  let hangarIndex = Math.max(0, SHIPS.findIndex(s=>s.id === selectedShipId));
+  let hangarAnimId = null;
+
+  function currentHangarShip(){ return SHIPS[hangarIndex]; }
+
+  function statRow(label, val, min, max, display){
+    const pct = Math.round(Math.max(0, Math.min(1, (val - min) / (max - min))) * 100);
+    const shown = display !== undefined ? display : val;
+    return '<div class="stat-row"><span class="stat-label">' + label + '</span>' +
+      '<div class="stat-bar"><div class="stat-fill" style="width:' + pct + '%"></div></div>' +
+      '<span class="stat-val">' + shown + '</span></div>';
+  }
+
+  function stopHangarAnim(){
+    if(hangarAnimId){ cancelAnimationFrame(hangarAnimId); hangarAnimId = null; }
+  }
+
+  function startHangarAnim(){
+    const cvs = document.getElementById('shipPreview');
+    if(!cvs) return;
+    const pctx = cvs.getContext('2d');
+    function frame(){
+      const ship = currentHangarShip();
+      pctx.clearRect(0, 0, cvs.width, cvs.height);
+      pctx.save();
+      pctx.translate(cvs.width/2, cvs.height/2 + 12);
+      pctx.scale(2.15, 2.15);
+      pctx.shadowColor = ship.color;
+      pctx.shadowBlur = 6;
+      paintShip(pctx, ship);
+      pctx.restore();
+      hangarAnimId = requestAnimationFrame(frame);
+    }
+    frame();
+  }
+
+  let hangarTab = 'ships';
+
+  function hangarTabsHtml(){
+    return '<h2>HANGAR</h2>' +
+    '<div class="hangar-tabs">' +
+      '<button class="tab-btn' + (hangarTab==='ships' ? ' active' : '') + '" id="tabShips">' + t('shipsTab') + '</button>' +
+      '<button class="tab-btn' + (hangarTab==='accessories' ? ' active' : '') + '" id="tabAccessories">' + t('accessoriesTab') + '</button>' +
+    '</div>';
+  }
+
+  function bindHangarTabs(){
+    document.getElementById('tabShips').addEventListener('click', ()=>{ if(hangarTab!=='ships'){ hangarTab='ships'; renderHangar(); } });
+    document.getElementById('tabAccessories').addEventListener('click', ()=>{ if(hangarTab!=='accessories'){ hangarTab='accessories'; stopHangarAnim(); renderHangar(); } });
+  }
+
+  function renderHangar(){
+    state.mode = 'hangar';
+    Native.onModeChange('hangar');
+    overlay.hidden = false;
+    if(hangarTab === 'accessories'){ renderAccessoriesPanel(); }
+    else { renderShipsPanel(); }
+  }
+
+  function renderShipsPanel(){
+    stopHangarAnim();
+    const ship = currentHangarShip();
+    const owned = ownedShips.indexOf(ship.id) !== -1;
+    const isSelected = ship.id === selectedShipId;
+    const locked = !owned && ship.requireCycles && cyclesCompleted < ship.requireCycles;
+    let actionLabel;
+    if(owned) actionLabel = isSelected ? t('equippedBtn') : t('equipBtn');
+    else if(locked) actionLabel = t('lockedCyclePrefix') + ship.requireCycles + t('lockedCycleSuffix');
+    else actionLabel = t('buyBtnPrefix') + ship.cost + ' \u{1F4B0}';
+
+    overlayContent.innerHTML =
+      hangarTabsHtml() +
+      '<canvas id="shipPreview" class="ship-preview" width="132" height="100"></canvas>' +
+      '<p class="ship-name" style="color:' + ship.color + '">' + ship.name + '</p>' +
+      '<p class="ship-desc">' + shipDescText(ship.id) + '</p>' +
+      '<div class="stat-block">' +
+        statRow(t('statVel'), ship.speed, 150, 335) +
+        statRow(t('statCad'), Math.round((1/ship.fireInterval)*10)/10, 2.5, 6.7) +
+        statRow(t('statDmg'), ship.damage, 1, 3) +
+        statRow(t('statLife'), ship.lives, 3, 7) +
+      '</div>' +
+      '<p class="coin-display">&#129689; ' + coins + '</p>' +
+      '<div class="ship-nav">' +
+        '<button class="nav-btn" id="prevShip" aria-label="' + t('prevShipLabel') + '">&#9664;</button>' +
+        '<span class="ship-index">' + (hangarIndex+1) + ' / ' + SHIPS.length + '</span>' +
+        '<button class="nav-btn" id="nextShip" aria-label="' + t('nextShipLabel') + '">&#9654;</button>' +
+      '</div>' +
+      '<button class="btn" id="shipActionBtn"' + (locked ? ' disabled' : '') + '>' + actionLabel + '</button>' +
+      '<button class="btn-secondary" id="launchBtn">' + t('launchBtn') + '</button>' +
+      (Native.isAvailable() ? (
+        '<button class="btn-secondary" id="watchAdBtn">' + t('watchAdBtn') + '</button>' +
+        (Native.isAdsRemoved() ?
+          '<p class="hint-text">' + t('adsRemovedLabel') + '</p>' :
+          '<button class="btn-secondary" id="removeAdsBtn">' + t('removeAdsBtn') + '</button>' +
+          '<p class="hint-text" id="restoreLink" style="cursor:pointer;text-decoration:underline">' + t('restoreBtn') + '</p>')
+      ) : '');
+
+    bindHangarTabs();
+    document.getElementById('prevShip').addEventListener('click', ()=>{ hangarIndex = (hangarIndex - 1 + SHIPS.length) % SHIPS.length; renderHangar(); });
+    document.getElementById('nextShip').addEventListener('click', ()=>{ hangarIndex = (hangarIndex + 1) % SHIPS.length; renderHangar(); });
+
+    const actionBtn = document.getElementById('shipActionBtn');
+    if((owned && isSelected) || locked) actionBtn.disabled = true;
+    actionBtn.addEventListener('click', ()=>{
+      if(locked) return;
+      if(!owned){
+        if(coins >= ship.cost){
+          coins -= ship.cost;
+          ownedShips.push(ship.id);
+          selectedShipId = ship.id;
+          saveMeta();
+          AudioSys.resume();
+          AudioSys.pickup();
+          renderHangar();
+        } else {
+          actionBtn.textContent = t('missingCoinsPrefix') + (ship.cost - coins) + ' \u{1F4B0}';
+        }
+      } else if(!isSelected){
+        selectedShipId = ship.id;
+        saveMeta();
+        renderHangar();
+      }
+    });
+    document.getElementById('launchBtn').addEventListener('click', ()=>{
+      stopHangarAnim();
+      renderIntro();
+    });
+
+    if(Native.isAvailable()){
+      const watchAdBtn = document.getElementById('watchAdBtn');
+      if(watchAdBtn) watchAdBtn.addEventListener('click', ()=>{ Native.watchAdForCoins(); });
+      const removeAdsBtn = document.getElementById('removeAdsBtn');
+      if(removeAdsBtn) removeAdsBtn.addEventListener('click', ()=>{ Native.purchaseRemoveAds(); });
+      const restoreLink = document.getElementById('restoreLink');
+      if(restoreLink) restoreLink.addEventListener('click', ()=>{ Native.restorePurchases(); });
+    }
+
+    startHangarAnim();
+  }
+
+  function renderAccessoriesPanel(){
+    let rows = '';
+    ACCESSORY_ORDER.forEach(function(key){
+      const acc = ACCESSORIES[key];
+      const tier = accTier(key);
+      const maxed = tier >= acc.tiers.length;
+      const next = !maxed ? acc.tiers[tier] : null;
+      const pct = Math.round((tier / acc.tiers.length) * 100);
+      rows +=
+        '<div class="acc-row">' +
+          '<div class="acc-head"><span class="acc-name">' + t(acc.nameKey) + '</span>' +
+            '<span class="acc-level">' + t('levelLabel') + ' ' + tier + '/' + acc.tiers.length + '</span></div>' +
+          '<div class="stat-bar"><div class="stat-fill" style="width:' + pct + '%"></div></div>' +
+          (tier > 0 ? '<p class="acc-desc">' + t('currentLabel') + ': ' + accTierEffectText(acc.tiers[tier-1]) + '</p>' : '') +
+          (!maxed ? '<p class="acc-desc">' + t('nextLabel') + ': ' + accTierEffectText(next) + '</p>' : '') +
+          '<button class="btn-secondary acc-btn" data-slot="' + key + '"' + (maxed ? ' disabled' : '') + '>' +
+            (maxed ? t('maxedBtn') : (t('upgradeBtnPrefix') + next.cost + ' \u{1F4B0}')) +
+          '</button>' +
+        '</div>';
+    });
+
+    overlayContent.innerHTML =
+      hangarTabsHtml() +
+      '<p class="coin-display">&#129689; ' + coins + '</p>' +
+      '<div class="acc-list">' + rows + '</div>' +
+      '<button class="btn-secondary" id="launchBtn">' + t('launchBtn') + '</button>';
+
+    bindHangarTabs();
+    overlayContent.querySelectorAll('.acc-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const key = btn.getAttribute('data-slot');
+        const acc = ACCESSORIES[key];
+        const tier = accTier(key);
+        if(tier >= acc.tiers.length) return;
+        const next = acc.tiers[tier];
+        if(coins >= next.cost){
+          coins -= next.cost;
+          accessoryTier[key] = tier + 1;
+          saveMeta();
+          AudioSys.resume();
+          AudioSys.pickup();
+          renderAccessoriesPanel();
+        } else {
+          btn.textContent = t('missingCoinsPrefix') + (next.cost - coins) + ' \u{1F4B0}';
+        }
+      });
+    });
+    document.getElementById('launchBtn').addEventListener('click', ()=>{
+      stopHangarAnim();
+      renderIntro();
+    });
+  }
+
+  /* Called from native (Android) after a rewarded "bonus coins" ad is watched to
+     completion. Not used at all in the web/Artifact build (Native.isAvailable() is
+     false there, so the button that would trigger this is never shown). */
+  window.onCoinsRewarded = function(amount){
+    awardCoins(amount || 0);
+    saveMeta();
+    if(state.mode === 'hangar') renderHangar();
+  };
+
+  /* Called from native after a successful "remove ads" purchase (or a restored one). */
+  window.onAdsRemoved = function(){
+    if(state.mode === 'hangar') renderHangar();
+  };
+
+  /* ---------------- overlay screens ---------------- */
+  function renderIntro(){
+    stopHangarAnim();
+    state.mode = 'attract';
+    Native.onModeChange('attract');
+    overlay.hidden = false;
+    overlayContent.innerHTML =
+      '<h2>INSERT COIN</h2>' +
+      '<p class="story-text" id="storyLine"></p>' +
+      '<p class="hint-text">' + t('attractHint') + '</p>' +
+      '<button class="btn" id="start-btn">' + t('playBtn') + '</button>' +
+      '<button class="btn-secondary" id="hangar-btn">' + t('changeShipBtn') + '</button>';
+    typeText(document.getElementById('storyLine'), t('introText'));
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('hangar-btn').addEventListener('click', renderHangar);
+  }
+
+  function renderInterstitial(nextStage){
+    const type = stageType(nextStage);
+    const heading = type === 'miniboss' ? t('alertMiniboss') :
+                    type === 'cycleboss' ? t('alertCycleboss') : t('transmission');
+    overlayContent.innerHTML =
+      '<h2>' + heading + '</h2>' +
+      '<p class="story-text" id="storyLine"></p>' +
+      '<button class="btn" id="continue-btn">' + t('continueBtn') + '</button>';
+    typeText(document.getElementById('storyLine'), storyForStage(nextStage));
+    pendingContinue = function(){
+      state.stage = nextStage;
+      overlay.hidden = true;
+      state.mode = 'playing';
+      Native.onModeChange('playing');
+      pendingContinue = null;
+      pendingNextStage = null;
+      if(type === 'miniboss' || type === 'cycleboss'){
+        spawnBoss(bossKeyForStage(nextStage));
+        state.bossActive = true;
+        bossBar.hidden = false;
+      }
+    };
+    document.getElementById('continue-btn').addEventListener('click', ()=>{ if(pendingContinue) pendingContinue(); });
+  }
+
+  function beginInterstitial(nextStage){
+    stopHangarAnim();
+    state.mode = 'interstitial';
+    Native.onModeChange('interstitial');
+    overlay.hidden = false;
+    pendingNextStage = nextStage;
+    saveMeta();
+    renderInterstitial(nextStage);
+  }
+
+  function renderContinueOffer(){
+    // True opt-in: the player explicitly chooses to watch a rewarded video before the run
+    // actually ends, instead of a video auto-playing the instant the last life is lost. That
+    // auto-play was the main source of the "too much advertising" complaint — a full-screen
+    // video popping up unrequested, right after dying, felt jarring even though it was meant
+    // to be a bonus. Now nothing loads or plays until the player taps "watch video" below.
+    overlay.hidden = false;
+    overlayContent.innerHTML =
+      '<h2>' + t('continueOfferTitle') + '</h2>' +
+      '<p class="hint-text">' + t('continueOfferHint') + '</p>' +
+      '<button class="btn" id="watch-continue-btn">' + t('watchAdContinueBtn') + '</button>' +
+      '<button class="btn-secondary" id="decline-continue-btn">' + t('declineContinueBtn') + '</button>';
+    document.getElementById('watch-continue-btn').addEventListener('click', ()=>{
+      Native.offerContinue();
+    });
+    document.getElementById('decline-continue-btn').addEventListener('click', ()=>{
+      gameOver();
+    });
+  }
+
+  function renderGameOver(newHigh){
+    stopHangarAnim();
+    Native.onModeChange('gameover');
+    lastNewHigh = newHigh;
+    overlayContent.innerHTML =
+      '<h2>GAME OVER</h2>' +
+      '<p class="hint-text">SCORE ' + pad(state.score) + (newHigh ? '<br>' + t('newRecord') : '') +
+        '<br>' + t('stageLabel') + ' ' + stageInPeriod(state.stage) + '/' + PERIOD + ' · ' + t('cycleLabel') + ' ' + (loopOf(state.stage)+1) + ' · \u{1F4B0} ' + coins + '</p>' +
+      '<button class="btn" id="retry-btn">' + t('retryBtn') + '</button>' +
+      '<button class="btn-secondary" id="hangar-btn">' + t('changeShipBtn') + '</button>';
+    document.getElementById('retry-btn').addEventListener('click', ()=>{ Native.requestInterstitialIfDue(); startGame(); });
+    document.getElementById('hangar-btn').addEventListener('click', ()=>{ Native.requestInterstitialIfDue(); renderHangar(); });
+  }
+
+  /* ---------------- input ---------------- */
+  function pointerToXY(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }
+  canvas.addEventListener('pointerdown', e=>{
+    pointerActive = true;
+    const p = pointerToXY(e.clientX, e.clientY);
+    // Relative drag: touching down anchors the drag here WITHOUT moving the ship —
+    // the ship only moves by however much the finger moves afterwards, same as a
+    // virtual joystick. (Previously this snapped the ship straight to the touch
+    // point, which felt like the ship teleporting on every tap.)
+    dragStartX = p.x; dragStartY = p.y;
+    shipStartX = player.targetX; shipStartY = player.targetY;
+    try{ canvas.setPointerCapture(e.pointerId); }catch(err){}
+  });
+  canvas.addEventListener('pointermove', e=>{
+    if(pointerActive){
+      const p = pointerToXY(e.clientX, e.clientY);
+      const dx = p.x - dragStartX, dy = p.y - dragStartY;
+      player.targetX = Math.max(18, Math.min(W-18, shipStartX + dx));
+      player.targetY = Math.max(50, Math.min(H-20, shipStartY + dy));
+    }
+  });
+  window.addEventListener('pointerup', ()=>{ pointerActive = false; });
+
+  window.addEventListener('keydown', e=>{
+    keys[e.key] = true;
+    if(e.key === ' ' || e.key === 'Enter'){
+      if(state.mode === 'hangar'){ stopHangarAnim(); renderIntro(); }
+      else if(state.mode === 'attract'){ startGame(); }
+      else if(state.mode === 'gameover'){ Native.requestInterstitialIfDue(); startGame(); }
+      else if(state.mode === 'interstitial' && pendingContinue){ pendingContinue(); }
+    }
+  });
+  window.addEventListener('keyup', e=>{ keys[e.key] = false; });
+
+  function startGame(){
+    stopHangarAnim();
+    resetGame();
+    state.mode = 'playing';
+    Native.onModeChange('playing');
+    overlay.hidden = true;
+    AudioSys.resume();
+    AudioSys.startMusic();
+  }
+
+  function gameOver(){
+    state.mode = 'gameover';
+    Native.onGameOver();
+    state.bossActive = false;
+    bossBar.hidden = true;
+    AudioSys.stopMusic();
+    AudioSys.gameOverSfx();
+    let newHigh = false;
+    if(state.score > hiscore){
+      hiscore = state.score; newHigh = true;
+      try{ localStorage.setItem('astro-siege-hiscore', String(hiscore)); }catch(e){}
+    }
+    hiEl.textContent = pad(hiscore);
+    saveMeta();
+    overlay.hidden = false;
+    renderGameOver(newHigh);
+  }
+
+  /* ---------------- spawning ---------------- */
+  function spawnEnemy(){
+    const pool = ['drone','drone','scout'];
+    if(state.stage >= 2) pool.push('turret');
+    if(state.stage >= 6) pool.push('bomber');
+    if(state.stage >= 10) pool.push('elite','elite');
+    const kind = pool[Math.floor(Math.random()*pool.length)];
+    const scl = Math.min(1 + (state.stage-1)*0.045, 3.2);
+    const hpBonus = Math.min(Math.floor((state.stage-1)/4), 14);
+    if(kind === 'turret'){
+      enemies.push({
+        x: 30 + Math.random()*(W-60), y:-20, w:24, h:20, kind,
+        speed: (18 + Math.random()*10)*scl, amp:0, freq:0, phase:0,
+        hp:3+hpBonus, fireTimer: Math.random()*0.6, fireInterval: Math.max(0.9, 1.6 - state.stage*0.03)
+      });
+    } else if(kind === 'bomber'){
+      enemies.push({
+        x: 30 + Math.random()*(W-60), y:-20, w:28, h:24, kind,
+        speed: (24 + Math.random()*10)*scl, amp:0, freq:0, phase:0,
+        hp:5+hpBonus, fireTimer: Math.random()*0.8, fireInterval: Math.max(1.1, 1.9 - state.stage*0.03)
+      });
+    } else {
+      const baseHp = kind==='scout' ? 1 : (kind==='elite' ? 3 : 2);
+      enemies.push({
+        x: 24 + Math.random()*(W-48), y:-20,
+        w: kind==='scout' ? 16 : (kind==='elite' ? 20 : 22),
+        h: kind==='scout' ? 14 : (kind==='elite' ? 16 : 18),
+        kind,
+        speed: (kind==='scout' ? 120+Math.random()*40 : (kind==='elite' ? 150+Math.random()*50 : 55+Math.random()*30))*scl,
+        amp: (kind==='elite' ? 26 : 18)+Math.random()*22, freq: 1+Math.random()*1.4, phase: Math.random()*Math.PI*2,
+        hp: baseHp + hpBonus
+      });
+    }
+  }
+  function spawnSwarmBurst(){
+    const scl = Math.min(1 + (state.stage-1)*0.045, 3.2);
+    const baseX = 30 + Math.random()*(W-60);
+    for(let i=0;i<3;i++){
+      enemies.push({
+        x: Math.max(16, Math.min(W-16, baseX + (i-1)*22)), y:-20-i*16,
+        w:12, h:10, kind:'swarmer',
+        speed: (140+Math.random()*30)*scl, amp: 10+Math.random()*10, freq: 2+Math.random(), phase: Math.random()*Math.PI*2,
+        hp:1
+      });
+    }
+  }
+  function spawnPickup(){
+    const types = ['rapid','shield','spread'];
+    const type = types[Math.floor(Math.random()*types.length)];
+    pickups.push({ x: 30+Math.random()*(W-60), y:-16, w:14, h:14, speed:70, type });
+  }
+  function spawnBoss(key){
+    const def = BOSS_DEFS[key];
+    const loop = Math.min(loopOf(state.stage), MAX_LOOP_SCALE);
+    const hpScale = 1 + loop*0.35;
+    const spdScale = 1 + loop*0.06;
+    const fiScale = Math.max(0.6, 1 - loop*0.04);
+    boss = {
+      kind:key, x:W/2, y:70, w:def.w, h:def.h, hp:Math.round(def.hp*hpScale), maxHp:Math.round(def.hp*hpScale),
+      dir:1, speed:def.speed*spdScale, fireTimer:0.6, fireInterval:def.fireInterval*fiScale,
+      pattern:def.pattern, color:def.color, miniIndex:def.miniIndex
+    };
+  }
+  function fire(){
+    const speed = currentShip.bulletSpeed;
+    AudioSys.shoot();
+    const wide = isSpread() && currentShip.alwaysSpread;
+    if(wide){
+      [-0.3,-0.12,0,0.12,0.3].forEach(a=>{
+        bullets.push({ x:player.x, y:player.y-player.h/2, w:3, h:10, vx:Math.sin(a)*speed, vy:-Math.cos(a)*speed });
+      });
+    } else if(isSpread() || currentShip.alwaysSpread){
+      [-0.2, 0, 0.2].forEach(a=>{
+        bullets.push({ x:player.x, y:player.y-player.h/2, w:3, h:10, vx:Math.sin(a)*speed, vy:-Math.cos(a)*speed });
+      });
+    } else {
+      bullets.push({ x:player.x, y:player.y-player.h/2, w:3, h:10, vx:0, vy:-speed });
+    }
+  }
+  function spawnParticles(x,y,color,n){
+    for(let i=0;i<n;i++){
+      const a = Math.random()*Math.PI*2, sp = 40+Math.random()*90;
+      particles.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, life: 0.4+Math.random()*0.3, age:0, color });
+    }
+  }
+  function hit(px,py,pw,ph,tx,ty,tw,th){
+    return px < tx+tw && px+pw > tx && py < ty+th && py+ph > ty;
+  }
+
+  /* ---------------- main loop ---------------- */
+  let lastT = performance.now();
+  function loop(now){
+    const dt = Math.min((now - lastT) / 1000, 0.05);
+    lastT = now;
+    if(state.mode === 'playing') update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function update(dt){
+    state.t += dt;
+    state.spawnInterval = Math.max(0.38, 1.15 - state.t*0.012);
+
+    const moveSpeed = effSpeed();
+    if(keys['ArrowLeft'] || keys['a'] || keys['A']) player.targetX -= moveSpeed*dt;
+    if(keys['ArrowRight'] || keys['d'] || keys['D']) player.targetX += moveSpeed*dt;
+    if(keys['ArrowUp'] || keys['w'] || keys['W']) player.targetY -= moveSpeed*dt;
+    if(keys['ArrowDown'] || keys['s'] || keys['S']) player.targetY += moveSpeed*dt;
+    player.targetX = Math.max(18, Math.min(W-18, player.targetX));
+    player.targetY = Math.max(50, Math.min(H-20, player.targetY));
+    const moveLerp = Math.min(1, dt*14*(moveSpeed/260));
+    player.x += (player.targetX - player.x) * moveLerp;
+    player.y += (player.targetY - player.y) * moveLerp;
+
+    const fireInt = isRapid() ? state.fireInterval*0.45 : state.fireInterval;
+    state.fireTimer += dt;
+    if(state.fireTimer >= fireInt){ state.fireTimer = 0; fire(); }
+
+    if(!state.bossActive && !state.stageClearing){
+      state.spawnTimer += dt;
+      if(state.spawnTimer >= state.spawnInterval){
+        state.spawnTimer = 0;
+        if(state.stage >= 3 && Math.random() < 0.2) spawnSwarmBurst();
+        else spawnEnemy();
+      }
+      if(Math.random() < 0.0016) spawnPickup();
+    }
+
+    for(const b of bullets){ b.x += b.vx*dt; b.y += b.vy*dt; }
+    bullets = bullets.filter(b=>b.y > -20 && b.y < H+20);
+
+    for(const en of enemies){
+      en.y += en.speed*dt;
+      en.x += Math.sin(state.t*en.freq + en.phase) * en.amp * dt;
+      if(en.kind === 'turret' || en.kind === 'bomber'){
+        en.fireTimer += dt;
+        if(en.fireTimer >= en.fireInterval && en.y > 0 && en.y < H*0.7){
+          en.fireTimer = 0;
+          if(en.kind === 'bomber'){
+            [-0.25,0,0.25].forEach(a=>{
+              enemyBullets.push({ x:en.x, y:en.y+en.h/2, w:4, h:10, vx:Math.sin(a)*140, vy:Math.cos(a)*140 });
+            });
+          } else {
+            enemyBullets.push({ x:en.x, y:en.y+en.h/2, w:4, h:10, vx:0, vy:130 });
+          }
+        }
+      }
+    }
+    enemies = enemies.filter(en=>en.y < H+30);
+
+    for(const eb of enemyBullets){
+      eb.x += (eb.vx||0)*dt;
+      eb.y += (eb.vy !== undefined ? eb.vy : eb.speed)*dt;
+    }
+    enemyBullets = enemyBullets.filter(eb=>eb.y < H+20 && eb.y > -30 && eb.x > -30 && eb.x < W+30);
+
+    for(const p of pickups) p.y += p.speed*dt;
+    pickups = pickups.filter(p=>p.y < H+20);
+
+    if(boss){
+      boss.x += boss.dir*boss.speed*dt;
+      if(boss.x < 50 || boss.x > W-50) boss.dir *= -1;
+      const phase2 = boss.pattern === 'phase' && boss.hp <= boss.maxHp*0.5;
+      const interval = phase2 ? boss.fireInterval*0.6 : boss.fireInterval;
+      boss.fireTimer += dt;
+      if(boss.fireTimer >= interval){
+        boss.fireTimer = 0;
+        const pattern = phase2 ? 'aimed' : boss.pattern;
+        if(pattern === 'triple'){
+          [-1,0,1].forEach(k=>{
+            enemyBullets.push({ x:boss.x+k*14, y:boss.y+boss.h/2, w:5, h:12, vx:0, vy:150+Math.abs(k)*10 });
+          });
+        } else if(pattern === 'spreadWide'){
+          [-2,-1,0,1,2].forEach(k=>{
+            enemyBullets.push({ x:boss.x+k*9, y:boss.y+boss.h/2, w:5, h:11, vx:k*26, vy:170 });
+          });
+        } else if(pattern === 'aimed'){
+          const dx = player.x-boss.x, dy = player.y-boss.y, len = Math.hypot(dx,dy)||1;
+          enemyBullets.push({ x:boss.x, y:boss.y+boss.h/2, w:6, h:12, vx:dx/len*230, vy:dy/len*230 });
+        } else if(pattern === 'burstAimed'){
+          const dx = player.x-boss.x, dy = player.y-boss.y, ang = Math.atan2(dy,dx);
+          [-0.16,0,0.16].forEach(off=>{
+            const a = ang+off;
+            enemyBullets.push({ x:boss.x, y:boss.y+boss.h/2, w:5, h:11, vx:Math.cos(a)*210, vy:Math.sin(a)*210 });
+          });
+        }
+      }
+    }
+
+    // bullets vs enemies
+    for(const en of enemies){
+      for(const b of bullets){
+        if(!b.dead && !en.dead && hit(b.x-b.w/2,b.y-b.h/2,b.w,b.h, en.x-en.w/2,en.y-en.h/2,en.w,en.h)){
+          b.dead = true; en.hp -= effDamage();
+          if(en.hp <= 0){
+            en.dead = true;
+            state.stageKills += 1;
+            state.score += ENEMY_SCORE[en.kind] || 100;
+            awardCoins(ENEMY_COIN[en.kind] || 3);
+            spawnParticles(en.x, en.y, ENEMY_COLOR[en.kind] || '#ff6b4a', 10);
+            AudioSys.explode();
+          } else {
+            spawnParticles(b.x, b.y, '#c6ff6b', 4);
+          }
+        }
+      }
+    }
+    bullets = bullets.filter(b=>!b.dead);
+    enemies = enemies.filter(en=>!en.dead);
+
+    // bullets vs boss
+    if(boss){
+      for(const b of bullets){
+        if(!boss) break;
+        if(!b.dead && hit(b.x-b.w/2,b.y-b.h/2,b.w,b.h, boss.x-boss.w/2, boss.y-boss.h/2, boss.w, boss.h)){
+          b.dead = true; boss.hp -= effDamage();
+          spawnParticles(b.x, b.y, '#8a6bff', 5);
+          AudioSys.bossHit();
+          if(boss.hp <= 0){
+            spawnParticles(boss.x, boss.y, '#8a6bff', 30);
+            spawnParticles(boss.x, boss.y, boss.color, 20);
+            const defeatedKind = boss.kind;
+            const miniIdx = boss.miniIndex;
+            const loop = loopOf(state.stage);
+            boss = null;
+            state.bossActive = false;
+            bossBar.hidden = true;
+            if(defeatedKind === 'final'){
+              awardCoins(300 + loop*40);
+              state.score += 1000 + loop*150;
+              // Gate for the tier-2/3 ships: how many full cycles this player has ever
+              // finished, best-of across all runs (never decreases).
+              cyclesCompleted = Math.max(cyclesCompleted, loop + 1);
+              AudioSys.victory();
+            } else {
+              awardCoins(60 + miniIdx*20);
+              state.score += 300 + miniIdx*100;
+            }
+            state.stageClearing = true;
+            state.stageClearTimer = 0;
+          }
+        }
+      }
+      bullets = bullets.filter(b=>!b.dead);
+      if(boss) bossBarFill.style.width = Math.max(0, (boss.hp/boss.maxHp)*100) + '%';
+    }
+
+    // enemies vs player
+    for(const en of enemies){
+      if(hit(player.x-player.w/2, player.y-player.h/2, player.w, player.h, en.x-en.w/2, en.y-en.h/2, en.w, en.h)){
+        en.dead = true;
+        spawnParticles(en.x, en.y, '#ff4f6d', 12);
+        if(!isShielded()) loseLife(); else AudioSys.pickup();
+      }
+    }
+    enemies = enemies.filter(en=>!en.dead);
+
+    // enemy bullets vs player
+    for(const eb of enemyBullets){
+      if(!eb.dead && hit(player.x-player.w/2, player.y-player.h/2, player.w, player.h, eb.x-eb.w/2, eb.y-eb.h/2, eb.w, eb.h)){
+        eb.dead = true;
+        spawnParticles(eb.x, eb.y, '#ff9d4a', 8);
+        if(!isShielded()) loseLife(); else AudioSys.pickup();
+      }
+    }
+    enemyBullets = enemyBullets.filter(eb=>!eb.dead);
+
+    // pickups vs player
+    for(const p of pickups){
+      if(hit(player.x-player.w/2, player.y-player.h/2, player.w, player.h, p.x-p.w/2, p.y-p.h/2, p.w, p.h)){
+        p.dead = true;
+        if(p.type === 'rapid') state.rapidUntil = state.t + 6;
+        else if(p.type === 'shield') state.shieldUntil = state.t + 5;
+        else if(p.type === 'spread') state.spreadUntil = state.t + 6;
+        const colorMap = { rapid:'#c6ff6b', shield:'#4fe3ff', spread:'#ff6bd8' };
+        spawnParticles(p.x, p.y, colorMap[p.type], 10);
+        AudioSys.pickup();
+        Native.haptic('pickup');
+      }
+    }
+    pickups = pickups.filter(p=>!p.dead);
+
+    for(const pt of particles){ pt.age += dt; pt.x += pt.vx*dt; pt.y += pt.vy*dt; pt.vx *= 0.94; pt.vy *= 0.94; }
+    particles = particles.filter(pt=>pt.age < pt.life);
+
+    if(state.shake > 0) state.shake = Math.max(0, state.shake - dt*3);
+
+    // stage progression: finish clearing the wave, THEN pause between levels
+    if(!state.bossActive && state.mode === 'playing'){
+      const quota = killQuotaForStage(state.stage);
+      if(quota !== undefined && !state.stageClearing && state.stageKills >= quota){
+        state.stageClearing = true;
+        state.stageClearTimer = 0;
+        awardCoins(15 + state.stage*2);
+        state.score += 50 + state.stage*10;
+      }
+      if(state.stageClearing){
+        state.stageClearTimer += dt;
+        if((enemies.length === 0 && state.stageClearTimer > 1.0) || state.stageClearTimer > 3.5){
+          const nextStage = state.stage + 1;
+          state.stageClearing = false;
+          state.stageKills = 0;
+          beginInterstitial(nextStage);
+        }
+      }
+    }
+
+    updateHud();
+  }
+
+  function loseLife(){
+    state.lives -= 1;
+    state.shake = reduceMotion ? 0 : 0.35;
+    AudioSys.hit();
+    Native.haptic('hit');
+    updateHud();
+    if(state.lives <= 0){
+      if(Native.isAvailable() && !usedContinueThisRun){
+        // Native wrapper only: offer one free continue via rewarded ad before the run
+        // actually ends. The player picks it explicitly on renderContinueOffer's screen —
+        // the ad itself only loads/plays if they tap "watch video" there. window.onContinueGranted/
+        // Declined (below) resume the flow — the web/Artifact build never enters this branch
+        // and goes straight to gameOver().
+        usedContinueThisRun = true;
+        state.mode = 'continueOffer';
+        renderContinueOffer();
+      } else {
+        gameOver();
+      }
+    }
+  }
+
+  window.onContinueGranted = function(){
+    if(state.mode !== 'continueOffer') return;
+    state.lives = 1;
+    state.shieldUntil = state.t + 3;
+    state.mode = 'playing';
+    // Bug fix: renderContinueOffer() shows the overlay (the "watch a video?" screen) but
+    // nothing was ever hiding it again once the reward was granted — the game resumed
+    // underneath while that modal stayed on top, blocking all input. Hide it here, same as
+    // startGame() does when a normal run begins.
+    overlay.hidden = true;
+    Native.onModeChange('playing');
+    updateHud();
+  };
+
+  window.onContinueDeclined = function(){
+    if(state.mode !== 'continueOffer') return;
+    gameOver();
+  };
+
+  /* ---------------- drawing ---------------- */
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.save();
+    if(state.shake > 0){
+      ctx.translate((Math.random()-0.5)*6*state.shake, (Math.random()-0.5)*6*state.shake);
+    }
+
+    drawStars();
+
+    for(const p of pickups){
+      const colorMap = { rapid:'#c6ff6b', shield:'#4fe3ff', spread:'#ff6bd8' };
+      ctx.fillStyle = colorMap[p.type] || '#c6ff6b';
+      ctx.beginPath(); ctx.arc(p.x,p.y,6,0,Math.PI*2); ctx.fill();
+    }
+
+    for(const en of enemies) drawEnemy(en);
+    if(boss) drawBoss(boss);
+
+    ctx.fillStyle = '#4fe3ff';
+    for(const b of bullets) ctx.fillRect(b.x-b.w/2, b.y-b.h/2, b.w, b.h);
+
+    ctx.fillStyle = '#ff9d4a';
+    for(const eb of enemyBullets) ctx.fillRect(eb.x-eb.w/2, eb.y-eb.h/2, eb.w, eb.h);
+
+    for(const pt of particles){
+      ctx.globalAlpha = Math.max(0, 1 - pt.age/pt.life);
+      ctx.fillStyle = pt.color;
+      ctx.fillRect(pt.x-2, pt.y-2, 4, 4);
+      ctx.globalAlpha = 1;
+    }
+
+    if(state.mode === 'playing' || state.mode === 'interstitial' || state.mode === 'gameover') drawPlayer();
+
+    ctx.restore();
+  }
+
+  function drawStars(){
+    ctx.fillStyle = 'rgba(243,239,232,0.6)';
+    const n = 40;
+    for(let i=0;i<n;i++){
+      const seed = i*97.31;
+      const x = (Math.sin(seed)*0.5+0.5) * W;
+      const speed = 20 + (i%5)*10;
+      const y = (state.t*speed + seed*40) % (H+20);
+      ctx.globalAlpha = 0.2 + (i%3)*0.25;
+      ctx.fillRect(x, y, 1.6, 1.6);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ---------------- ship silhouettes ---------------- */
+  function drawThruster(ctx, ship){
+    const w = ship.w, h = ship.h;
+    const pts = ship.thrusters || [0];
+    pts.forEach(px=>{
+      const x = px * w;
+      const flick = 0.65 + Math.random()*0.35;
+      const len = (7 + Math.random()*5) * flick;
+      const grad = ctx.createLinearGradient(x, h/2, x, h/2 + len);
+      grad.addColorStop(0, ship.accent);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(x - 2.4, h/2 - 1);
+      ctx.lineTo(x + 2.4, h/2 - 1);
+      ctx.lineTo(x, h/2 + len);
+      ctx.closePath();
+      ctx.fill();
+    });
+  }
+
+  function hullInterceptor(ctx, ship){
+    const w = ship.w, h = ship.h;
+    ctx.fillStyle = ship.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -h/2);
+    ctx.lineTo(w*0.18, -h*0.05);
+    ctx.lineTo(w/2, h/2);
+    ctx.lineTo(w*0.12, h*0.28);
+    ctx.lineTo(0, h/2 - 2);
+    ctx.lineTo(-w*0.12, h*0.28);
+    ctx.lineTo(-w/2, h/2);
+    ctx.lineTo(-w*0.18, -h*0.05);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath();
+    ctx.ellipse(0, -h*0.08, w*0.09, h*0.16, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = ship.accent;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-w*0.3, h*0.08);
+    ctx.lineTo(w*0.3, h*0.08);
+    ctx.stroke();
+  }
+
+  function hullScout(ctx, ship){
+    const w = ship.w, h = ship.h;
+    ctx.fillStyle = ship.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -h/2);
+    ctx.lineTo(w*0.14, h*0.1);
+    ctx.lineTo(w*0.08, h/2);
+    ctx.lineTo(-w*0.08, h/2);
+    ctx.lineTo(-w*0.14, h*0.1);
+    ctx.closePath();
+    ctx.fill();
+    [1,-1].forEach(s=>{
+      ctx.beginPath();
+      ctx.moveTo(s*w*0.1, -h*0.05);
+      ctx.lineTo(s*w/2, h*0.42);
+      ctx.lineTo(s*w*0.22, h*0.42);
+      ctx.lineTo(s*w*0.1, h*0.05);
+      ctx.closePath();
+      ctx.fill();
+    });
+    ctx.fillStyle = ship.accent;
+    ctx.beginPath(); ctx.arc(w*0.38, h*0.4, 2.4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-w*0.38, h*0.4, 2.4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.ellipse(0, -h*0.15, w*0.07, h*0.14, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  function hullGunship(ctx, ship){
+    const w = ship.w, h = ship.h;
+    ctx.fillStyle = ship.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -h/2);
+    ctx.lineTo(w*0.32, -h*0.12);
+    ctx.lineTo(w/2, h*0.4);
+    ctx.lineTo(w*0.3, h/2);
+    ctx.lineTo(-w*0.3, h/2);
+    ctx.lineTo(-w/2, h*0.4);
+    ctx.lineTo(-w*0.32, -h*0.12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = ship.accent;
+    ctx.fillRect(w*0.22, -h*0.5, 3, h*0.42);
+    ctx.fillRect(-w*0.22 - 3, -h*0.5, 3, h*0.42);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(-w*0.12, -h*0.05, w*0.24, h*0.16);
+  }
+
+  function hullStealth(ctx, ship){
+    const w = ship.w, h = ship.h;
+    ctx.fillStyle = ship.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -h/2);
+    ctx.lineTo(w/2, h*0.38);
+    ctx.lineTo(w*0.18, h*0.2);
+    ctx.lineTo(0, h/2);
+    ctx.lineTo(-w*0.18, h*0.2);
+    ctx.lineTo(-w/2, h*0.38);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = ship.accent;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, -h*0.3);
+    ctx.lineTo(0, h*0.28);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.ellipse(0, -h*0.1, w*0.06, h*0.12, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  function hullDread(ctx, ship){
+    const w = ship.w, h = ship.h;
+    ctx.fillStyle = ship.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -h/2);
+    ctx.lineTo(w*0.16, h*0.4);
+    ctx.lineTo(-w*0.16, h*0.4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = ship.accent;
+    [1,-1].forEach(s=>{
+      ctx.beginPath();
+      ctx.moveTo(s*w*0.14, -h*0.12);
+      ctx.lineTo(s*w*0.5, h*0.1);
+      ctx.lineTo(s*w*0.42, h*0.5);
+      ctx.lineTo(s*w*0.2, h*0.5);
+      ctx.lineTo(s*w*0.14, h*0.05);
+      ctx.closePath();
+      ctx.fill();
+    });
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.ellipse(0, -h*0.1, w*0.07, h*0.14, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  function hullValkyrie(ctx, ship){
+    // Elite interceptor: long slender fuselage, swept blade-wings, dual accent fins.
+    const w = ship.w, h = ship.h;
+    ctx.fillStyle = ship.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -h/2);
+    ctx.lineTo(w*0.1, h*0.02);
+    ctx.lineTo(w*0.07, h/2);
+    ctx.lineTo(-w*0.07, h/2);
+    ctx.lineTo(-w*0.1, h*0.02);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = ship.accent;
+    [1,-1].forEach(s=>{
+      ctx.beginPath();
+      ctx.moveTo(s*w*0.06, -h*0.22);
+      ctx.lineTo(s*w/2, h*0.02);
+      ctx.lineTo(s*w*0.34, h*0.46);
+      ctx.lineTo(s*w*0.1, h*0.3);
+      ctx.closePath();
+      ctx.fill();
+    });
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.beginPath(); ctx.ellipse(0, -h*0.12, w*0.055, h*0.16, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  function hullReaper(ctx, ship){
+    // Dagger-shaped: narrow, aggressive, single sharp spine, heavy nose weight.
+    const w = ship.w, h = ship.h;
+    ctx.fillStyle = ship.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -h/2);
+    ctx.lineTo(w*0.24, h*0.1);
+    ctx.lineTo(w*0.4, h*0.48);
+    ctx.lineTo(w*0.1, h*0.3);
+    ctx.lineTo(0, h*0.5);
+    ctx.lineTo(-w*0.1, h*0.3);
+    ctx.lineTo(-w*0.4, h*0.48);
+    ctx.lineTo(-w*0.24, h*0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = ship.accent;
+    ctx.beginPath();
+    ctx.moveTo(0, -h*0.42);
+    ctx.lineTo(w*0.08, h*0.1);
+    ctx.lineTo(-w*0.08, h*0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.beginPath(); ctx.ellipse(0, -h*0.05, w*0.05, h*0.1, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  function hullAegis(ctx, ship){
+    // Flying fortress: wide, blocky hull with reinforced plating and a full-width shield rim.
+    const w = ship.w, h = ship.h;
+    ctx.fillStyle = ship.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -h*0.5);
+    ctx.lineTo(w*0.4, -h*0.1);
+    ctx.lineTo(w/2, h*0.44);
+    ctx.lineTo(w*0.28, h/2);
+    ctx.lineTo(-w*0.28, h/2);
+    ctx.lineTo(-w/2, h*0.44);
+    ctx.lineTo(-w*0.4, -h*0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = ship.accent;
+    ctx.fillRect(w*0.3, -h*0.42, 4, h*0.6);
+    ctx.fillRect(-w*0.3 - 4, -h*0.42, 4, h*0.6);
+    ctx.strokeStyle = ship.accent;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(-w*0.38, h*0.14);
+    ctx.lineTo(w*0.38, h*0.14);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(-w*0.14, -h*0.02, w*0.28, h*0.18);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath(); ctx.ellipse(0, -h*0.16, w*0.08, h*0.14, 0, 0, Math.PI*2); ctx.fill();
+  }
+
+  function hullSingularity(ctx, ship){
+    // Exotic edge-of-tech design: diamond core with orbiting angled vanes.
+    const w = ship.w, h = ship.h;
+    ctx.fillStyle = ship.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -h/2);
+    ctx.lineTo(w*0.22, 0);
+    ctx.lineTo(0, h/2);
+    ctx.lineTo(-w*0.22, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = ship.accent;
+    [1,-1].forEach(s=>{
+      ctx.beginPath();
+      ctx.moveTo(s*w*0.1, -h*0.18);
+      ctx.lineTo(s*w/2, h*0.06);
+      ctx.lineTo(s*w*0.32, h*0.42);
+      ctx.lineTo(s*w*0.06, h*0.2);
+      ctx.closePath();
+      ctx.fill();
+    });
+    ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(0, 0, w*0.14, h*0.1, 0, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, Math.PI*2); ctx.fill();
+  }
+
+  function paintShip(ctx, ship){
+    drawThruster(ctx, ship);
+    switch(ship.id){
+      case 'interceptor': hullInterceptor(ctx, ship); break;
+      case 'scout': hullScout(ctx, ship); break;
+      case 'gunship': hullGunship(ctx, ship); break;
+      case 'stealth': hullStealth(ctx, ship); break;
+      case 'dread': hullDread(ctx, ship); break;
+      case 'valkyrie': hullValkyrie(ctx, ship); break;
+      case 'reaper': hullReaper(ctx, ship); break;
+      case 'aegis': hullAegis(ctx, ship); break;
+      case 'singularity': hullSingularity(ctx, ship); break;
+      default: hullInterceptor(ctx, ship);
+    }
+  }
+
+  function drawPlayer(){
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    if(isShielded()){
+      ctx.strokeStyle = 'rgba(79,227,255,' + (0.4+0.3*Math.sin(state.t*8)) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(0,0, Math.max(player.w,player.h)*0.62, 0, Math.PI*2); ctx.stroke();
+    }
+    ctx.shadowColor = currentShip.color;
+    ctx.shadowBlur = 10;
+    paintShip(ctx, currentShip);
+    ctx.shadowBlur = 0;
+    if(isRapid() || isSpread()){
+      ctx.strokeStyle = isRapid() ? 'rgba(198,255,107,0.8)' : 'rgba(255,107,216,0.8)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(0,0, Math.max(player.w,player.h)*0.72, 0, Math.PI*2); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawEnemy(en){
+    ctx.save();
+    ctx.translate(en.x, en.y);
+    const col = ENEMY_COLOR[en.kind] || '#8a6bff';
+    ctx.shadowColor = col; ctx.shadowBlur = 6;
+    ctx.fillStyle = col;
+    if(en.kind === 'turret'){
+      ctx.fillRect(-en.w/2, -en.h/2, en.w, en.h);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(-3, en.h/2-4, 6, 6);
+    } else if(en.kind === 'bomber'){
+      ctx.beginPath();
+      ctx.moveTo(0, -en.h/2); ctx.lineTo(en.w/2, -en.h*0.1); ctx.lineTo(en.w/2, en.h*0.35);
+      ctx.lineTo(0, en.h/2); ctx.lineTo(-en.w/2, en.h*0.35); ctx.lineTo(-en.w/2, -en.h*0.1);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(-3, -2, 6, 6);
+    } else if(en.kind === 'elite'){
+      ctx.beginPath();
+      ctx.moveTo(0, en.h/2); ctx.lineTo(en.w/2, -en.h/2); ctx.lineTo(0, -en.h*0.1); ctx.lineTo(-en.w/2, -en.h/2);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(0, en.h*0.3); ctx.lineTo(0, -en.h*0.2); ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(0, en.h/2);
+      ctx.lineTo(en.w/2, -en.h/2);
+      ctx.lineTo(0, -en.h/4);
+      ctx.lineTo(-en.w/2, -en.h/2);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  function drawBoss(b){
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    const enraged = b.pattern === 'phase' && b.hp <= b.maxHp*0.5;
+    ctx.shadowColor = b.color; ctx.shadowBlur = 16;
+    ctx.fillStyle = b.color;
+    if(b.kind === 'mini3'){
+      ctx.beginPath(); ctx.ellipse(0,0,b.w/2,b.h/2,0,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.ellipse(0,0,b.w*0.18,b.h*0.22,0,0,Math.PI*2); ctx.fill();
+    } else if(b.kind === 'mini4' || b.kind === 'final'){
+      ctx.beginPath();
+      ctx.moveTo(0,-b.h/2); ctx.lineTo(b.w*0.16,b.h*0.32); ctx.lineTo(-b.w*0.16,b.h*0.32);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = b.kind === 'final' ? '#ff6b4a' : 'rgba(255,255,255,0.4)';
+      [1,-1].forEach(s=>{
+        ctx.beginPath();
+        ctx.moveTo(s*b.w*0.12, -b.h*0.1);
+        ctx.lineTo(s*b.w/2, b.h*0.05);
+        ctx.lineTo(s*b.w*0.4, b.h/2);
+        ctx.lineTo(s*b.w*0.16, b.h*0.4);
+        ctx.closePath(); ctx.fill();
+      });
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(0,b.h/2); ctx.lineTo(b.w/2,-b.h/2); ctx.lineTo(b.w*0.18,-b.h*0.15);
+      ctx.lineTo(0,-b.h*0.28); ctx.lineTo(-b.w*0.18,-b.h*0.15); ctx.lineTo(-b.w/2,-b.h/2);
+      ctx.closePath(); ctx.fill();
+      if(b.kind === 'mini2'){
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.beginPath(); ctx.arc(b.w*0.4,0,3,0,Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(-b.w*0.4,0,3,0,Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = enraged ? 'rgba(255,79,109,0.9)' : 'rgba(255,107,74,0.8)';
+    ctx.lineWidth = enraged ? 3 : 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  applyStaticText();
+  fit();
+  updateHud();
+  renderHangar();
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

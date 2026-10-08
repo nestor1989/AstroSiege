@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Astro Siege</string>
+
+    <string name="notification_channel_name">Astro Siege reminders</string>
+    <string name="notification_channel_desc">An occasional nudge to come back and play.</string>
+    <string name="daily_reminder_title">Astro Siege</string>
+    <string name="daily_reminder_body">Your ship needs you — sector 7 is still under siege.</string>
+
+    <string name="toast_ads_removed">Ads removed. Thanks for the support!</string>
+    <string name="toast_purchase_error">Couldn\'t complete the purchase. Try again later.</string>
+    <string name="toast_purchase_restored">Purchase restored — ads are off.</string>
+    <string name="toast_no_reward_available">No video available right now. Try again in a bit.</string>
+    <string name="toast_offline">You\'re offline — this needs an internet connection.</string>
+</resources>
